@@ -4,1622 +4,637 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>cv-tool</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg: #000;
-  --surface: rgba(12,12,14,0.98);
-  --border: rgba(255,255,255,0.06);
-  --border2: rgba(255,255,255,0.10);
-  --text: rgba(255,255,255,0.82);
-  --dim: rgba(255,255,255,0.3);
-  --dimmer: rgba(255,255,255,0.14);
-  --font: 'Outfit', sans-serif;
-  --mono: 'JetBrains Mono', monospace;
-  --accent: #38bdf8;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06060a;--bg2:#0d0d12;--surface:#0f0f14;--s2:rgba(255,255,255,0.03);
+  --b:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.12);
+  --t:rgba(255,255,255,0.85);--d:rgba(255,255,255,0.38);
+  --dd:rgba(255,255,255,0.18);--ddd:rgba(255,255,255,0.08);
+  --font:Arial,Helvetica,sans-serif;--mono:'Courier New',Courier,monospace;
+  --acc:#38bdf8;--rail:52px;
 }
-
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  overflow-x: hidden;
-  padding-bottom: 80px;
+body.light{
+  --bg:#eeeef2;--bg2:#e6e6ea;--surface:#f2f2f6;--s2:rgba(0,0,0,0.03);
+  --b:rgba(0,0,0,0.09);--b2:rgba(0,0,0,0.15);
+  --t:rgba(0,0,0,0.82);--d:rgba(0,0,0,0.42);--dd:rgba(0,0,0,0.22);--ddd:rgba(0,0,0,0.08);
 }
+body{font-family:var(--font);background:var(--bg);color:var(--t);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
-body.light {
-  --bg: #f0f0f2;
-  --surface: rgba(248,248,250,0.98);
-  --border: rgba(0,0,0,0.07);
-  --border2: rgba(0,0,0,0.12);
-  --text: rgba(0,0,0,0.8);
-  --dim: rgba(0,0,0,0.35);
-  --dimmer: rgba(0,0,0,0.16);
-}
+/* topbar */
+.tb{height:44px;flex-shrink:0;display:flex;align-items:center;border-bottom:1px solid var(--b);background:var(--bg);padding:0 14px 0 0;z-index:100}
+.tb-brand{width:var(--rail);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-right:1px solid var(--b);height:100%}
+.tb-logo{font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:var(--t);font-family:var(--mono)}
+.tb-status{flex:1;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--dd);font-family:var(--mono);padding:0 14px}
+.tb-acts{display:flex;align-items:center;gap:5px}
+.tb-btn{height:27px;padding:0 9px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--d);font-size:8px;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:4px;transition:background .13s,color .13s;white-space:nowrap}
+.tb-btn:hover{background:var(--b);color:var(--t)}
+.tb-btn.on{background:rgba(56,189,248,.1);color:#38bdf8;border-color:rgba(56,189,248,.25)}
+.tb-ico{width:27px;height:27px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--d);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .13s,color .13s}
+.tb-ico:hover{background:var(--b);color:var(--t)}
 
-/* header */
-.hdr {
-  position: sticky;
-  top: 16px;
-  z-index: 999;
-  display: flex;
-  justify-content: center;
-  margin-bottom: -52px;
-  pointer-events: none;
-}
+/* layout */
+.layout{flex:1;display:flex;min-height:0;overflow:hidden}
 
-.hdr-pill {
-  pointer-events: all;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 52px;
-  padding: 0 22px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.015);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.16),
-    0 16px 48px rgba(0,0,0,0.88),
-    0 0 0 1px rgba(0,0,0,0.3);
-}
-
-body.light .hdr-pill {
-  background: rgba(255,255,255,0.7);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1), 0 8px 32px rgba(0,0,0,0.12);
-}
-
-.hdr-name {
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.hdr-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--dimmer); }
-
-.hdr-sub {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dimmer);
-  font-family: var(--mono);
-}
-
-.hdr-btns { display: flex; gap: 10px; margin-left: 8px; }
-
-.hdr-btn {
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border2);
-  background: transparent;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--dim);
-  transition: color 0.15s, background 0.15s;
-}
-
-.hdr-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+/* rail */
+.rail{width:var(--rail);flex-shrink:0;border-right:1px solid var(--b);background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:3px}
+.rb{width:36px;height:36px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dd);transition:all .14s;position:relative}
+.rb:hover{background:var(--s2);color:var(--d);border-color:var(--b)}
+.rb.on{background:rgba(56,189,248,.08);color:#38bdf8;border-color:rgba(56,189,248,.2)}
+.rb svg{width:16px;height:16px}
+.rtip{position:absolute;left:42px;top:50%;transform:translateY(-50%);background:var(--surface);border:1px solid var(--b2);border-radius:6px;padding:3px 8px;font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .11s;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.rb:hover .rtip{opacity:1}
+.rsep{width:24px;height:1px;background:var(--b);margin:3px 0}
 
 /* main */
-.wrap {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 84px 24px 0;
-}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 
-/* tiles */
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
+/* section header */
+.shdr{height:38px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--b);background:var(--bg)}
+.shdr-title{font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--dd);font-family:var(--mono)}
 
-.tile {
-  aspect-ratio: 1;
-  border-radius: 20px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  background: linear-gradient(160deg, #111114 0%, #070709 100%);
-  box-shadow: 0 16px 36px -10px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(255,255,255,0.045);
-  transition: opacity 0.25s, filter 0.25s, transform 0.25s, box-shadow 0.25s;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
+/* graph */
+.g-sect{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.g-ctrl{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--b);flex-wrap:wrap;background:var(--bg)}
+.g-area{flex:1;position:relative;min-height:0;padding:10px 14px 6px}
+.g-area canvas{display:block}
+.g-hint{position:absolute;bottom:10px;right:16px;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ddd);font-family:var(--mono);pointer-events:none}
 
-body.light .tile {
-  background: linear-gradient(160deg, #e8e8ec 0%, #d8d8de 100%);
-  box-shadow: 0 8px 24px -6px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.6);
-}
+/* stat strip */
+.strip{flex-shrink:0;display:flex;align-items:stretch;border-top:1px solid var(--b);background:var(--bg);min-height:46px}
+.sc{flex:1;display:flex;flex-direction:column;justify-content:center;padding:5px 12px;border-right:1px solid var(--b);min-width:0}
+.sc:last-child{border-right:none}
+.sc-l{font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--dd);margin-bottom:2px;font-family:var(--mono);display:flex;align-items:center;gap:4px}
+.sc-v{font-size:13px;font-weight:700;color:var(--t);font-family:var(--mono);line-height:1}
+.sc-s{font-size:8px;color:var(--dd);font-family:var(--mono);margin-top:1px}
 
-.tile:active { transform: scale(0.96) !important; }
+/* stats */
+.s-sect{flex:1;display:flex;min-height:0;overflow:hidden}
+.s-ctrl{width:240px;flex-shrink:0;border-right:1px solid var(--b);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.s-out{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
 
-.tile.dim {
-  opacity: 0.28;
-  filter: grayscale(0.6);
-  transform: scale(0.96);
-  pointer-events: none;
-}
+/* compare */
+.cmp-sect{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
-.tile.on {
-  box-shadow: 0 20px 40px -10px rgba(0,0,0,0.9), inset 0 0 0 1.5px var(--tc, rgba(255,255,255,0.3));
-}
+/* metrics + upload */
+.m-sect{flex:1;overflow-y:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;align-content:start}
+.u-sect{flex:1;overflow-y:auto;padding:22px}
 
-/* sweep */
-.sweep {
-  position: absolute;
-  inset: -140%;
-  pointer-events: none;
-  opacity: 0.38;
-  mix-blend-mode: screen;
-}
-
-body.light .sweep { mix-blend-mode: multiply; opacity: 0.15; }
-
-.sweep-inner {
-  width: 100%; height: 100%;
-  filter: blur(18px);
-}
-
-.tile.on .sweep { opacity: 0.7; }
-
-/* tile highlights */
-.t-hl {
-  position: absolute;
-  left: 50%; transform: translateX(-50%);
-  width: 85%; pointer-events: none;
-  mix-blend-mode: plus-lighter;
-  z-index: 1;
-}
-.t-hl.top { top: 5px; height: 46%; border-radius: 12px 12px 0 0; background: linear-gradient(to bottom, rgba(255,255,255,0.28), transparent); opacity: 0.18; }
-.t-hl.bot { bottom: 6px; height: 38%; border-radius: 0 0 12px 12px; background: linear-gradient(to top, rgba(255,255,255,0.22), transparent); opacity: 0.15; }
-
-/* tile content */
-.t-inner {
-  position: absolute; inset: 0; z-index: 2;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 6px; padding: 14px 10px;
-}
-
-.t-icon {
-  width: 28px; height: 28px;
-  color: rgba(255,255,255,0.28);
-  transition: color 0.25s;
-  flex-shrink: 0;
-}
-
-body.light .t-icon { color: rgba(0,0,0,0.3); }
-.tile.on .t-icon { color: var(--tc, rgba(255,255,255,0.9)); }
-
-.t-label {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.45);
-  text-align: center;
-  line-height: 1.3;
-  transition: color 0.25s;
-}
-
-body.light .t-label { color: rgba(0,0,0,0.4); }
-.tile.on .t-label { color: rgba(255,255,255,0.88); }
-
-.t-sub {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.16);
-  text-align: center;
-  font-family: var(--mono);
-  transition: color 0.25s;
-}
-
-body.light .t-sub { color: rgba(0,0,0,0.22); }
-.tile.on .t-sub { color: rgba(255,255,255,0.35); }
-
-/* panel */
-.panel-wrap { animation: panelIn 0.32s cubic-bezier(0.4,0,0.2,1); }
-
-@keyframes panelIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.992); }
-  to   { opacity: 1; transform: none; }
-}
-
-.panel {
-  background: var(--surface);
-  border-radius: 22px;
-  border: 1px solid var(--border);
-  box-shadow: 0 32px 72px -16px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05);
-  overflow: hidden;
-  min-height: 480px;
-}
-
-body.light .panel {
-  box-shadow: 0 8px 40px -8px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.9);
-}
-
-.ph {
-  padding: 20px 24px 16px;
-  display: flex; align-items: center; gap: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ph-icon {
-  width: 32px; height: 32px; border-radius: 9px;
-  border: 1px solid var(--border2);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  color: var(--dim);
-}
-
-.ph-title {
-  font-size: 15px; font-weight: 900;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text);
-}
-
-.pb { padding: 22px 24px; }
-
-/* glass toggle — exact from source */
-.gtog {
-  position: relative; display: flex; align-items: center;
-  flex-shrink: 0; height: 38px; padding: 5px; border-radius: 99em;
-  background-color: rgba(187,187,188,0.12);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.03),
-    inset 1.8px 3px 0px -2px rgba(255,255,255,0.27),
-    inset -2px -2px 0px -2px rgba(255,255,255,0.24),
-    inset -3px -8px 1px -6px rgba(255,255,255,0.18),
-    inset -0.3px -1px 4px 0px rgba(0,0,0,0.24),
-    inset 0px 3px 4px -2px rgba(0,0,0,0.40),
-    0px 6px 16px 0px rgba(0,0,0,0.16);
-}
-
-.gtog-pill {
-  position: absolute; left: 5px; top: 5px;
-  height: calc(100% - 10px); border-radius: 99em;
-  background-color: rgba(187,187,188,0.38);
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.03),
-    inset 2px 1px 0px -1px rgba(255,255,255,0.27),
-    inset -1.5px -1px 0px -1px rgba(255,255,255,0.24),
-    inset -1px 2px 3px -1px rgba(0,0,0,0.40),
-    0px 3px 6px 0px rgba(0,0,0,0.16);
-  z-index: 0; pointer-events: none;
-  transition: transform 380ms cubic-bezier(1,0,0.4,1), width 380ms cubic-bezier(1,0,0.4,1);
-}
-
-.gtog-btn {
-  position: relative; z-index: 1;
-  display: flex; align-items: center; justify-content: center;
-  height: 100%; border-radius: 99em; border: none;
-  background: transparent; cursor: pointer;
-  font-size: 9px; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; font-family: var(--font);
-  color: rgba(255,255,255,0.3); white-space: nowrap; padding: 0 11px;
-  transition: color 140ms ease;
-}
-
-.gtog-btn.on { color: rgba(255,255,255,0.9); cursor: default; }
-.gtog-btn:not(.on):hover { color: rgba(255,255,255,0.55); }
+/* glass toggle */
+.gtog{position:relative;display:inline-flex;align-items:center;flex-shrink:0;height:29px;padding:4px;border-radius:99em;background:rgba(187,187,188,.12);backdrop-filter:blur(8px) saturate(150%);-webkit-backdrop-filter:blur(8px) saturate(150%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),inset 1.8px 3px 0 -2px rgba(255,255,255,.27),inset -2px -2px 0 -2px rgba(255,255,255,.24),inset -3px -8px 1px -6px rgba(255,255,255,.18),inset -.3px -1px 4px 0 rgba(0,0,0,.24),inset 0 3px 4px -2px rgba(0,0,0,.4),0 6px 16px 0 rgba(0,0,0,.16)}
+.gpill{position:absolute;left:4px;top:4px;height:calc(100% - 8px);border-radius:99em;background:rgba(187,187,188,.38);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),inset 2px 1px 0 -1px rgba(255,255,255,.27),inset -1.5px -1px 0 -1px rgba(255,255,255,.24),inset -1px 2px 3px -1px rgba(0,0,0,.4),0 3px 6px 0 rgba(0,0,0,.16);z-index:0;pointer-events:none;transition:transform 340ms cubic-bezier(1,0,.4,1),width 340ms cubic-bezier(1,0,.4,1)}
+.gbtn{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;height:100%;border-radius:99em;border:none;background:transparent;cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;font-family:var(--font);color:rgba(255,255,255,.28);white-space:nowrap;padding:0 9px;transition:color 130ms ease}
+.gbtn.on{color:rgba(255,255,255,.9);cursor:default}
+.gbtn:not(.on):hover{color:rgba(255,255,255,.52)}
 
 /* shared */
-.slabel {
-  font-size: 8px; font-weight: 900; letter-spacing: 0.2em;
-  text-transform: uppercase; color: var(--dimmer); margin-bottom: 8px;
-}
-
-.sdivider { height: 1px; background: var(--border); margin: 16px 0; }
-
-.chartbox {
-  background: rgba(0,0,0,0.22); border-radius: 12px;
-  border: 1px solid var(--border); padding: 14px;
-}
-
-body.light .chartbox { background: rgba(0,0,0,0.04); }
-
-.badge {
-  display: inline-flex; align-items: center;
-  padding: 3px 8px; border-radius: 6px;
-  font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;
-}
-.bg  { background: rgba(74,222,128,0.1);  color: #4ade80; border: 1px solid rgba(74,222,128,0.22); }
-.br  { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.22); }
-.by  { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.22); }
-.bb  { background: rgba(56,189,248,0.1);  color: #38bdf8; border: 1px solid rgba(56,189,248,0.22); }
-
-.ds-chip {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 10px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.025);
-  font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--dimmer); transition: all 0.15s; user-select: none;
-}
-.ds-chip.on { color: var(--text); background: rgba(255,255,255,0.065); border-color: var(--border2); }
-
-.stat-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  border-radius: 8px; background: rgba(255,255,255,0.02);
-  margin-bottom: 4px; border: 1px solid var(--border);
-  cursor: pointer; transition: all 0.14s;
-}
-.stat-row:hover { background: rgba(255,255,255,0.04); }
-.stat-row.on { background: rgba(255,255,255,0.06); border-color: var(--border2); }
-.stat-row span { font-size: 10px; font-weight: 700; color: var(--dim); }
-.stat-row.on span { color: var(--text); }
-
-.rtbl { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; }
-.rtbl th { padding: 7px 10px; text-align: left; font-size: 8px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dimmer); border-bottom: 1px solid var(--border); }
-.rtbl td { padding: 8px 10px; color: var(--dim); border-bottom: 1px solid rgba(255,255,255,0.025); }
-
-.upload-zone {
-  border: 1.5px dashed rgba(255,255,255,0.1); border-radius: 14px;
-  padding: 40px 28px; text-align: center; cursor: pointer;
-  background: rgba(255,255,255,0.01); transition: all 0.18s;
-}
-body.light .upload-zone { border-color: rgba(0,0,0,0.12); background: rgba(0,0,0,0.02); }
-.upload-zone:hover, .upload-zone.drag { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.02); }
-body.light .upload-zone:hover { border-color: rgba(0,0,0,0.2); background: rgba(0,0,0,0.04); }
-
-.result-box {
-  background: rgba(0,0,0,0.32); border: 1px solid var(--border2);
-  border-radius: 12px; padding: 16px; font-family: var(--mono);
-}
-body.light .result-box { background: rgba(0,0,0,0.04); }
-
-.rval { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
-.rlbl { font-size: 8px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dimmer); margin-bottom: 7px; }
-
-/* sweep animation */
-@keyframes sweepRot { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* scrollbar */
-::-webkit-scrollbar { width: 0; }
+.slbl{font-size:7px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--dd);margin-bottom:5px;font-family:var(--mono)}
+.card{background:var(--surface);border:1px solid var(--b);border-radius:11px;padding:13px}
+.csm{background:var(--s2);border:1px solid var(--b);border-radius:7px;padding:7px 9px}
+.ritem{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;border:1px solid var(--b);background:var(--s2);cursor:pointer;transition:all .12s;user-select:none}
+.ritem:hover{background:var(--b);border-color:var(--b2)}
+.ritem.on{background:var(--b);border-color:var(--b2)}
+.ritem span{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--d)}
+.ritem.on span{color:var(--t)}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono)}
+.bg{background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.2)}
+.br{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2)}
+.by{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.bb{background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.2)}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.rcard{background:var(--surface);border:1px solid var(--b);border-radius:9px;padding:11px 13px}
+.rl{font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--dd);margin-bottom:5px;font-family:var(--mono)}
+.rv{font-size:21px;font-weight:700;color:var(--t);font-family:var(--mono);line-height:1}
+.rs{font-size:8px;color:var(--dd);font-family:var(--mono);margin-top:3px}
+.cout{background:var(--bg2);border:1px solid var(--b);border-radius:7px;padding:11px 13px;font-family:var(--mono);font-size:10px;line-height:1.9;color:var(--d);overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:5px 9px;text-align:left;font-size:7px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--dd);border-bottom:1px solid var(--b);font-family:var(--mono)}
+.tbl td{padding:6px 9px;font-family:var(--mono);font-size:10px;color:var(--d);border-bottom:1px solid rgba(255,255,255,.025)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--b);background:var(--s2);font-size:8px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--dd);transition:all .12s;user-select:none}
+.chip.on{color:var(--t);background:var(--b);border-color:var(--b2)}
+.uzone{border:1.5px dashed var(--b2);border-radius:11px;padding:34px;text-align:center;cursor:pointer;background:var(--s2);transition:all .15s}
+.uzone:hover,.uzone.drag{border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.04)}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
 </style>
 </head>
 <body>
 
-<div class="hdr">
-  <div class="hdr-pill">
-    <div class="hdr-name">cv-tool</div>
-    <div class="hdr-sep"></div>
-    <div class="hdr-sub" id="hdr-status">no data loaded</div>
-    <div class="hdr-btns">
-      <button class="hdr-btn" id="theme-btn" title="toggle theme" onclick="toggleTheme()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      </button>
+<div class="tb">
+  <div class="tb-brand"><span class="tb-logo">cv</span></div>
+  <div class="tb-status" id="tbst">no data — load demo or upload xml</div>
+  <div class="tb-acts">
+    <div id="neon-btn" class="tb-btn" onclick="toggleNeon()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Neon
+    </div>
+    <div class="tb-btn" onclick="exportPNG()">PNG</div>
+    <div class="tb-btn" onclick="exportCSV()">CSV</div>
+    <div class="tb-ico" onclick="toggleTheme()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
     </div>
   </div>
 </div>
 
-<div class="wrap">
-  <div class="tiles" id="tiles"></div>
-  <div id="panel"></div>
+<div class="layout">
+  <div class="rail">
+    <button class="rb on" id="rb-graph"   onclick="nav('graph')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="rtip">Graph</span></button>
+    <button class="rb"    id="rb-compare" onclick="nav('compare')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="rtip">Compare</span></button>
+    <button class="rb"    id="rb-stats"   onclick="nav('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg><span class="rtip">Stats</span></button>
+    <button class="rb"    id="rb-metrics" onclick="nav('metrics')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg><span class="rtip">Metrics</span></button>
+    <div class="rsep"></div>
+    <button class="rb"    id="rb-upload"  onclick="nav('upload')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span class="rtip">Upload</span></button>
+  </div>
+  <div class="main" id="main"></div>
 </div>
 
 <script>
-// ─── config ───────────────────────────────────────────
+// state
+let datasets=[], activeDS=[], charts={}, section='graph', neonMode=false, theme='dark'
+let gMetric='hr', gStyle='line', gSmooth=true
+let sMetric=0, sTest=0, sSelDS=[]
+let cmpM=0
 
-const TILE_COLORS = [
-  { hex: '#38bdf8', rgb: '56,189,248'  },
-  { hex: '#4ade80', rgb: '74,222,128'  },
-  { hex: '#f87171', rgb: '248,113,113' },
-  { hex: '#c084fc', rgb: '192,132,252' },
-  { hex: '#fbbf24', rgb: '251,191,36'  },
-  { hex: '#e2e8f0', rgb: '226,232,240' },
+const DCOLS=['#38bdf8','#4ade80','#f87171','#c084fc','#fbbf24','#fb923c']
+const DNEON=[
+  {c:'#38bdf8',g:'rgba(56,189,248,0.6)'},
+  {c:'#4ade80',g:'rgba(74,222,128,0.6)'},
+  {c:'#f87171',g:'rgba(248,113,113,0.6)'},
+  {c:'#c084fc',g:'rgba(192,132,252,0.6)'},
+  {c:'#fbbf24',g:'rgba(251,191,36,0.6)'},
 ]
 
-const TILES_CFG = [
-  { id: 'upload',  label: 'Upload',    sub: 'XML / CSV',      icon: icUpload  },
-  { id: 'graph',   label: 'Graph',     sub: 'Time Series',    icon: icChart   },
-  { id: 'compare', label: 'Compare',   sub: 'Multi-Dataset',  icon: icCompare },
-  { id: 'stats',   label: 'Stats',     sub: 'Test Sandbox',   icon: icSigma   },
-  { id: 'metrics', label: 'Metrics',   sub: 'Derived Params', icon: icPulse   },
-  { id: 'about',   label: 'About',     sub: '—',              icon: icInfo    },
-]
-
-// ─── icons ─────────────────────────────────────────────
-
-function icUpload()  { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>` }
-function icChart()   { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>` }
-function icCompare() { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="18"/></svg>` }
-function icSigma()   { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>` }
-function icPulse()   { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>` }
-function icInfo()    { return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` }
-
-// ─── state ─────────────────────────────────────────────
-
-let active = null
-let datasets = []
-let charts = {}
-let theme = 'dark'
-
-// graph state
-let gMetric   = 'hr'
-let gSmooth   = true
-let gPhases   = true
-let gActiveDS = []
-
-// stats state
-let sMetric = 0
-let sTest   = 0
-let sDs     = []
-
-// compare state
-let cMetric = 0
-
-// ─── Apple Watch metrics we care about ─────────────────
-
-const METRICS = {
-  hr:        { label: 'Heart Rate',           unit: 'bpm',     hk: 'HKQuantityTypeIdentifierHeartRate' },
-  hrv:       { label: 'HRV (SDNN)',           unit: 'ms',      hk: 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN' },
-  spo2:      { label: 'SpO₂',                unit: '%',       hk: 'HKQuantityTypeIdentifierOxygenSaturation' },
-  rr:        { label: 'Respiratory Rate',     unit: 'br/min',  hk: 'HKQuantityTypeIdentifierRespiratoryRate' },
-  energy:    { label: 'Active Energy',        unit: 'kcal',    hk: 'HKQuantityTypeIdentifierActiveEnergyBurned' },
-  vo2:       { label: 'VO₂ Max',             unit: 'mL/kg/min',hk:'HKQuantityTypeIdentifierVO2Max' },
-  steps:     { label: 'Step Count',          unit: 'steps',   hk: 'HKQuantityTypeIdentifierStepCount' },
+const MCFG={
+  hr:    {label:'Heart Rate',     unit:'bpm',      hk:'HKQuantityTypeIdentifierHeartRate'},
+  hrv:   {label:'HRV (SDNN)',     unit:'ms',       hk:'HKQuantityTypeIdentifierHeartRateVariabilitySDNN'},
+  spo2:  {label:'SpO₂',         unit:'%',        hk:'HKQuantityTypeIdentifierOxygenSaturation'},
+  rr:    {label:'Resp. Rate',     unit:'br/min',   hk:'HKQuantityTypeIdentifierRespiratoryRate'},
+  energy:{label:'Active Energy',  unit:'kcal',     hk:'HKQuantityTypeIdentifierActiveEnergyBurned'},
+  vo2:   {label:'VO₂ Max',       unit:'mL/kg/min',hk:'HKQuantityTypeIdentifierVO2Max'},
 }
 
-// ─── demo data ─────────────────────────────────────────
+// rng
+function rng(s){let seed=s; return ()=>{seed=(seed*1664525+1013904223)&0xffffffff; return (seed>>>0)/0xffffffff}}
 
-function rng(s) {
-  let seed = s
-  return () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff }
-}
-
-function makeDemo(id, seed, label) {
-  const r = rng(seed)
-  const rest = 58 + r() * 14
-  const peak = 158 + r() * 22
-  const dur = 2400 // 40 min total
-  const pts_hr = []
-
-  for (let t = 0; t < dur; t += 8 + Math.floor(r() * 6)) {
-    let hr
-    const f = t / dur
-    if (f < 0.08) {
-      hr = rest + (r() - 0.5) * 5
-    } else if (f < 0.2) {
-      const ramp = (f - 0.08) / 0.12
-      hr = rest + (peak * 0.7 - rest) * ramp + (r() - 0.5) * 8
-    } else if (f < 0.55) {
-      hr = peak * (0.78 + r() * 0.14) + Math.sin(t * 0.02) * 6 + (r() - 0.5) * 10
-    } else if (f < 0.62) {
-      const warm = (f - 0.55) / 0.07
-      hr = peak * 0.92 - (peak * 0.92 - peak * 0.68) * warm + (r() - 0.5) * 6
-    } else if (f < 0.72) {
-      hr = peak * (0.84 + r() * 0.1) + (r() - 0.5) * 9
-    } else {
-      const tau = 52 + r() * 28
-      const elapsed = (f - 0.72) * dur
-      hr = rest + (peak * 0.88 - rest) * Math.exp(-elapsed / tau) + (r() - 0.5) * 5
-    }
-    pts_hr.push({ t, v: Math.round(Math.max(40, Math.min(210, hr)) * 10) / 10 })
+// demo
+function mkDemo(id,seed,label){
+  const r=rng(seed), rest=58+r()*14, peak=158+r()*22, dur=2400, hr=[]
+  for(let t=0;t<dur;t+=8+Math.floor(r()*6)){
+    const f=t/dur; let v
+    if(f<.08)      v=rest+(r()-.5)*5
+    else if(f<.22) v=rest+(peak*.75-rest)*((f-.08)/.14)+(r()-.5)*8
+    else if(f<.55) v=peak*(.8+r()*.13)+Math.sin(t*.018)*7+(r()-.5)*9
+    else if(f<.62) v=peak*.92-(peak*.92-peak*.7)*((f-.55)/.07)+(r()-.5)*6
+    else if(f<.72) v=peak*(.84+r()*.1)+(r()-.5)*9
+    else{const tau=50+r()*30,el=(f-.72)*dur; v=rest+(peak*.88-rest)*Math.exp(-el/tau)+(r()-.5)*5}
+    hr.push({t,v:Math.round(Math.max(40,Math.min(210,v))*10)/10})
   }
+  const hrv=hr.filter((_,i)=>i%5===0).map(p=>({t:p.t,v:Math.round((75-(p.v-rest)*.55+(r()-.5)*12)*10)/10}))
+  const spo2=hr.filter((_,i)=>i%8===0).map(p=>({t:p.t,v:Math.round((98.6-(p.v>165?1.4:.2)+(r()-.5)*.7)*10)/10}))
+  let cum=0; const energy=hr.filter((_,i)=>i%3===0).map(p=>{cum+=(p.v/180)*.12+r()*.05; return{t:p.t,v:Math.round(cum*10)/10}})
+  return{id,label,color:DCOLS[id%DCOLS.length],rest:Math.round(rest),peak:Math.round(peak),totalDur:dur,metrics:{hr,hrv,spo2,energy}}
+}
 
-  // fake HRV
-  const pts_hrv = pts_hr.filter((_, i) => i % 5 === 0).map(p => ({
-    t: p.t,
-    v: Math.round((80 - (p.v - rest) * 0.6 + (r() - 0.5) * 12) * 10) / 10
-  }))
-
-  // fake SpO2
-  const pts_spo2 = pts_hr.filter((_, i) => i % 8 === 0).map(p => ({
-    t: p.t,
-    v: Math.round((98.5 - (p.v > 160 ? 1.2 : 0) + (r() - 0.5) * 0.8) * 10) / 10
-  }))
-
-  // fake energy (cumulative)
-  let cum = 0
-  const pts_e = pts_hr.filter((_, i) => i % 3 === 0).map(p => {
-    cum += (p.v / 180) * 0.12 + r() * 0.06
-    return { t: p.t, v: Math.round(cum * 10) / 10 }
+function parseXML(xml,label){
+  const doc=new DOMParser().parseFromString(xml,'application/xml')
+  const ds={id:datasets.length,label,color:DCOLS[datasets.length%DCOLS.length],metrics:{}}
+  Object.entries(MCFG).forEach(([k,cfg])=>{
+    const recs=doc.querySelectorAll(`Record[type="${cfg.hk}"]`)
+    if(!recs.length)return
+    const base=new Date(recs[0].getAttribute('startDate')).getTime(), pts=[]
+    recs.forEach(r=>{const t=(new Date(r.getAttribute('startDate')).getTime()-base)/1000; let v=parseFloat(r.getAttribute('value')); if(k==='spo2')v*=100; if(!isNaN(v)&&v>0)pts.push({t:Math.round(t),v})})
+    if(pts.length)ds.metrics[k]=pts
   })
-
-  return {
-    id, label, color: ['#38bdf8','#4ade80','#f87171','#c084fc'][id % 4],
-    rest: Math.round(rest), peak: Math.round(peak),
-    totalDur: dur,
-    metrics: { hr: pts_hr, hrv: pts_hrv, spo2: pts_spo2, energy: pts_e }
-  }
+  if(!ds.metrics.hr)return null
+  ds.totalDur=ds.metrics.hr[ds.metrics.hr.length-1].t
+  const rp=ds.metrics.hr.slice(0,Math.floor(ds.metrics.hr.length*.08))
+  ds.rest=Math.round(rp.reduce((s,p)=>s+p.v,0)/rp.length)
+  ds.peak=Math.round(Math.max(...ds.metrics.hr.map(p=>p.v)))
+  return ds
 }
 
-// ─── XML parser ────────────────────────────────────────
+function avg(a){return a?.length?a.reduce((s,v)=>s+v,0)/a.length:null}
+function ha(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`}
+function dot(col){return `<i style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${col};flex-shrink:0"></i>`}
 
-function parseXML(xmlStr, label) {
-  const doc = new DOMParser().parseFromString(xmlStr, 'application/xml')
-  const result = { id: datasets.length, label, color: TILE_COLORS[datasets.length % 4].hex, metrics: {} }
-
-  Object.entries(METRICS).forEach(([key, cfg]) => {
-    const recs = doc.querySelectorAll(`Record[type="${cfg.hk}"]`)
-    if (!recs.length) return
-    const pts = []
-    const base = new Date(recs[0].getAttribute('startDate')).getTime()
-    recs.forEach(r => {
-      const t = (new Date(r.getAttribute('startDate')).getTime() - base) / 1000
-      let v = parseFloat(r.getAttribute('value'))
-      if (key === 'spo2') v *= 100
-      if (!isNaN(v) && v > 0) pts.push({ t: Math.round(t), v })
-    })
-    if (pts.length) result.metrics[key] = pts
-  })
-
-  if (!result.metrics.hr) return null
-  result.totalDur = result.metrics.hr[result.metrics.hr.length - 1].t
-  const restPts = result.metrics.hr.slice(0, Math.floor(result.metrics.hr.length * 0.08))
-  result.rest = Math.round(restPts.reduce((s, p) => s + p.v, 0) / restPts.length)
-  result.peak = Math.round(Math.max(...result.metrics.hr.map(p => p.v)))
-  return result
+function nav(s){
+  section=s
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('on'))
+  document.getElementById(`rb-${s}`)?.classList.add('on')
+  killCharts(); render()
+}
+function killCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={}}
+function render(){
+  const el=document.getElementById('main'); el.innerHTML=''
+  const fns={graph:rGraph,compare:rCompare,stats:rStats,metrics:rMetrics,upload:rUpload}
+  fns[section]?.(el); updateTB()
+}
+function updateTB(){
+  const el=document.getElementById('tbst')
+  if(!datasets.length){el.innerHTML='no data — <span style="color:var(--ddd)">load demo or upload xml</span>'; return}
+  el.innerHTML=datasets.map(d=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px">${dot(d.color)}${d.label}<span style="color:var(--ddd);margin-left:2px">${d.metrics.hr?.length||0}pts</span></span>`).join('')
 }
 
-// ─── stats ─────────────────────────────────────────────
+// ── GRAPH ─────────────────────────────────────────────────
+function rGraph(el){
+  if(!datasets.length){el.innerHTML=empty('Load demo data or upload XML to get started.',`<button class="tb-btn" style="height:30px" onclick="loadDemo(2)">Load Demo</button> <button class="tb-btn" style="height:30px;margin-left:5px" onclick="nav('upload')">Upload XML</button>`); return}
 
-function wilcoxon(x, y) {
-  const d = x.map((xi, i) => xi - y[i]).filter(d => Math.abs(d) > 1e-9)
-  const n = d.length
-  if (n < 2) return null
-  const items = d.map(v => ({ v, abs: Math.abs(v), sgn: Math.sign(v), rank: 0 })).sort((a,b) => a.abs - b.abs)
-  let i = 0
-  while (i < n) {
-    let j = i
-    while (j < n && items[j].abs === items[i].abs) j++
-    const avg = (i + j + 1) / 2
-    for (let k = i; k < j; k++) items[k].rank = avg
-    i = j
-  }
-  const Wp = items.filter(r => r.sgn > 0).reduce((s,r) => s + r.rank, 0)
-  const Wm = items.filter(r => r.sgn < 0).reduce((s,r) => s + r.rank, 0)
-  const W = Math.min(Wp, Wm)
-  const p = n <= 20 ? exactWilcoxP(W, n) : normalApproxP(W, n)
-  const mu = n*(n+1)/4, sig = Math.sqrt(n*(n+1)*(2*n+1)/24)
-  const Z = (W - mu) / sig
-  return { W, Wp, Wm, n, p, Z, r: Math.abs(Z) / Math.sqrt(n) }
-}
+  const avail=Object.entries(MCFG).filter(([k])=>datasets.some(d=>d.metrics[k]))
+  const mBtns=avail.map(([k,m])=>`<button onclick="setGM('${k}')" id="gm-${k}" style="padding:3px 8px;border-radius:5px;border:1px solid ${gMetric===k?'var(--b2)':'var(--b)'};background:${gMetric===k?'var(--b)':'var(--s2)'};color:${gMetric===k?'var(--t)':'var(--dd)'};font-size:8px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:all .12s">${m.label}</button>`).join('')
+  const dsChips=datasets.map(d=>`<div class="chip ${activeDS.includes(d.id)?'on':''}" id="gc-${d.id}" onclick="tgDS(${d.id})">${dot(d.color)}${d.label}</div>`).join('')
 
-function exactWilcoxP(W, n) {
-  const tot = 1 << n
-  let c = 0
-  for (let mask = 0; mask < tot; mask++) {
-    let t = 0
-    for (let i = 0; i < n; i++) if ((mask >> i) & 1) t += (i + 1)
-    if (Math.min(t, n*(n+1)/2 - t) <= W) c++
-  }
-  return c / tot
-}
-
-function normalApproxP(W, n) {
-  const mu = n*(n+1)/4, sig = Math.sqrt(n*(n+1)*(2*n+1)/24)
-  const z = Math.abs((W - mu) / sig)
-  return 2 * (1 - normalCDF(z))
-}
-
-function normalCDF(z) {
-  const t = 1 / (1 + 0.2316419 * Math.abs(z))
-  const d = 0.3989423 * Math.exp(-z*z/2)
-  const p = d * t * (0.3193815 + t*(-0.3565638 + t*(1.7814779 + t*(-1.8212560 + t*1.3302744))))
-  return z > 0 ? 1 - p : p
-}
-
-function mannWhitney(x, y) {
-  const nx = x.length, ny = y.length
-  let U1 = 0
-  x.forEach(xi => y.forEach(yj => { if (xi > yj) U1++; else if (xi === yj) U1 += 0.5 }))
-  const U2 = nx * ny - U1
-  const U = Math.min(U1, U2)
-  const mu = nx * ny / 2
-  const sig = Math.sqrt(nx * ny * (nx + ny + 1) / 12)
-  const Z = (U - mu) / sig
-  const p = 2 * (1 - normalCDF(Math.abs(Z)))
-  const r = Math.abs(Z) / Math.sqrt(nx + ny)
-  return { U, U1, U2, nx, ny, Z, p, r }
-}
-
-function signTest(x, y) {
-  const n = x.length
-  const k = x.filter((xi, i) => xi > y[i]).length
-  let p = 0
-  const lo = Math.min(k, n - k)
-  for (let i = 0; i <= lo; i++) p += binom(n, i) * Math.pow(0.5, n)
-  return { k, n, p: Math.min(1, p * 2) }
-}
-
-function pairedT(x, y) {
-  const n = x.length
-  const d = x.map((xi, i) => xi - y[i])
-  const mean = d.reduce((a,b) => a+b, 0) / n
-  const v = d.reduce((s, di) => s + (di - mean)**2, 0) / (n - 1)
-  const se = Math.sqrt(v / n)
-  const t = mean / se
-  const p = 2 * (1 - tCDF(Math.abs(t), n - 1))
-  const cohd = mean / Math.sqrt(v)
-  return { t, p, d: cohd, mean, se, n }
-}
-
-function tCDF(t, df) {
-  const x = df / (df + t*t)
-  return 1 - 0.5 * betaInc(df/2, 0.5, x)
-}
-
-function betaInc(a, b, x) {
-  // continued fraction approx
-  if (x < 0 || x > 1) return 0
-  if (x === 0) return 0
-  if (x === 1) return 1
-  const lbeta = logGamma(a + b) - logGamma(a) - logGamma(b)
-  const front = Math.exp(Math.log(x)*a + Math.log(1-x)*b - lbeta) / a
-  let c = 1, d = 1 - (a+b)*x/(a+1), sum = 1
-  d = d === 0 ? 1e-30 : 1/d; c = d
-  for (let m = 1; m <= 100; m++) {
-    const m2 = 2*m
-    let num = m*(b-m)*x / ((a+m2-1)*(a+m2))
-    d = 1 + num*d; d = d === 0 ? 1e-30 : d
-    c = 1 + num/c; c = c === 0 ? 1e-30 : c
-    d = 1/d; let delta = c*d
-    sum *= delta
-    num = -(a+m)*(a+b+m)*x / ((a+m2)*(a+m2+1))
-    d = 1 + num*d; d = d === 0 ? 1e-30 : d
-    c = 1 + num/c; c = c === 0 ? 1e-30 : c
-    d = 1/d; delta = c*d; sum *= delta
-    if (Math.abs(delta - 1) < 1e-8) break
-  }
-  return front * sum
-}
-
-function logGamma(z) {
-  const c = [76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5]
-  let x = z, y = z, tmp = x + 5.5
-  tmp -= (x + 0.5) * Math.log(tmp)
-  let ser = 1.000000000190015
-  for (let i = 0; i < 6; i++) ser += c[i] / ++y
-  return -tmp + Math.log(2.5066282746310005 * ser / x)
-}
-
-function pearson(x, y) {
-  const n = x.length
-  const mx = x.reduce((a,b)=>a+b,0)/n, my = y.reduce((a,b)=>a+b,0)/n
-  const num = x.reduce((s,xi,i)=>s+(xi-mx)*(y[i]-my),0)
-  const dx = Math.sqrt(x.reduce((s,xi)=>s+(xi-mx)**2,0))
-  const dy = Math.sqrt(y.reduce((s,yi)=>s+(yi-my)**2,0))
-  const r = num / (dx * dy)
-  const t = r * Math.sqrt(n-2) / Math.sqrt(1-r*r)
-  const p = 2 * (1 - tCDF(Math.abs(t), n-2))
-  return { r, t, p, n }
-}
-
-function spearman(x, y) {
-  const rank = arr => {
-    const sorted = [...arr].map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v)
-    const ranks = new Array(arr.length)
-    let i = 0
-    while (i < sorted.length) {
-      let j = i
-      while (j < sorted.length && sorted[j].v === sorted[i].v) j++
-      const avg = (i + j + 1) / 2
-      for (let k = i; k < j; k++) ranks[sorted[k].i] = avg
-      i = j
-    }
-    return ranks
-  }
-  const rx = rank(x), ry = rank(y)
-  return pearson(rx, ry)
-}
-
-function bootstrap95CI(x, y, fn, n = 2000) {
-  const diffs = []
-  for (let i = 0; i < n; i++) {
-    const bx = [], by = []
-    for (let j = 0; j < x.length; j++) {
-      const idx = Math.floor(Math.random() * x.length)
-      bx.push(x[idx]); by.push(y[idx])
-    }
-    const mx = bx.reduce((a,b)=>a+b,0)/bx.length
-    const my = by.reduce((a,b)=>a+b,0)/by.length
-    diffs.push(mx - my)
-  }
-  diffs.sort((a,b)=>a-b)
-  return { lo: diffs[Math.floor(n*0.025)], hi: diffs[Math.floor(n*0.975)] }
-}
-
-function binom(n, k) {
-  if (k < 0 || k > n) return 0
-  if (k === 0 || k === n) return 1
-  let r = 1
-  for (let i = 0; i < Math.min(k, n-k); i++) r = r*(n-i)/(i+1)
-  return r
-}
-
-function pFmt(p) {
-  if (p < 0.001) return '< 0.001'
-  return p.toFixed(4)
-}
-
-// ─── glass toggle factory ──────────────────────────────
-
-function makeToggle(id, labels, activeIdx, onChange) {
-  const bw = 54 + Math.max(...labels.map(l=>l.length)) * 4
-  const pw = bw - 2
-  const tw = bw * labels.length + 10
-  return `
-    <div class="gtog" id="gt-${id}" style="width:${tw}px">
-      <div class="gtog-pill" id="gtp-${id}" style="width:${pw}px; transform:translateX(${activeIdx*(pw+1)}px)"></div>
-      ${labels.map((l,i)=>`
-        <button class="gtog-btn ${i===activeIdx?'on':''}" style="width:${bw}px"
-          onclick="gtClick('${id}',${i},'${onChange}')">${l}</button>
-      `).join('')}
+  el.innerHTML=`
+    <div class="g-sect">
+      <div class="g-ctrl">
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${dsChips}</div>
+        <div style="width:1px;height:20px;background:var(--b)"></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${mBtns}</div>
+        <div style="width:1px;height:20px;background:var(--b)"></div>
+        ${mkTog('gst',['Line','Area','Scatter'],['line','area','scatter'].indexOf(gStyle),'onGSt')}
+        ${mkTog('gsm',['Raw','Smooth'],gSmooth?1:0,'onGSm')}
+      </div>
+      <div class="g-area" id="ga"><canvas id="gc"></canvas><div class="g-hint">scroll=zoom · drag=pan · dbl=reset</div></div>
+      <div class="strip" id="strip"></div>
     </div>`
+  setTimeout(()=>{buildChart();buildStrip()},30)
 }
 
-function gtClick(id, idx, cb) {
-  const wrap = document.getElementById(`gt-${id}`)
-  const pill = document.getElementById(`gtp-${id}`)
-  if (!wrap || !pill) return
-  const pw = pill.offsetWidth
-  wrap.querySelectorAll('.gtog-btn').forEach((b,i) => b.classList.toggle('on', i===idx))
-  pill.style.transform = `translateX(${idx*(pw+1)}px)`
-  if (window[cb]) window[cb](idx)
+window.onGSt=i=>{gStyle=['line','area','scatter'][i]; killCharts(); buildChart()}
+window.onGSm=i=>{gSmooth=i===1; killCharts(); buildChart()}
+window.setGM=k=>{
+  gMetric=k
+  document.querySelectorAll('[id^="gm-"]').forEach(b=>{const bk=b.id.replace('gm-',''); b.style.background=bk===k?'var(--b)':'var(--s2)'; b.style.borderColor=bk===k?'var(--b2)':'var(--b)'; b.style.color=bk===k?'var(--t)':'var(--dd)'})
+  killCharts(); buildChart(); buildStrip()
+}
+window.tgDS=id=>{
+  if(activeDS.includes(id))activeDS=activeDS.filter(x=>x!==id); else activeDS.push(id)
+  document.getElementById(`gc-${id}`)?.classList.toggle('on',activeDS.includes(id))
+  killCharts(); buildChart(); buildStrip()
 }
 
-// ─── tile render ───────────────────────────────────────
+function buildChart(){
+  const canvas=document.getElementById('gc'), area=document.getElementById('ga')
+  if(!canvas||!area)return
+  canvas.width=area.clientWidth; canvas.height=area.clientHeight-22
+  const m=MCFG[gMetric], active=datasets.filter(d=>activeDS.includes(d.id)&&d.metrics[gMetric])
+  if(!active.length)return
 
-function renderTiles() {
-  const el = document.getElementById('tiles')
-  el.innerHTML = TILES_CFG.map((cfg, i) => {
-    const isOn  = active === cfg.id
-    const isDim = active && !isOn
-    const ac    = TILE_COLORS[i]
-    const sweep = isOn
-      ? `conic-gradient(from 0deg, transparent 0%, rgba(${ac.rgb},0.3) 4%, rgba(${ac.rgb},0.7) 5%, rgba(${ac.rgb},0.3) 6%, transparent 14%, transparent 100%)`
-      : `conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.07) 4%, rgba(255,255,255,0.22) 5%, rgba(255,255,255,0.07) 6%, transparent 14%, transparent 100%)`
-    return `
-      <div class="tile ${isOn?'on':''} ${isDim?'dim':''}"
-        style="${isOn ? `--tc:${ac.hex}` : ''}"
-        onclick="selectTile('${cfg.id}')">
-        <div class="sweep" style="animation:sweepRot ${8+i*0.65}s linear infinite; animation-delay:-${i*1.3}s">
-          <div class="sweep-inner" style="background:${sweep}"></div>
-        </div>
-        <div class="t-hl top"></div>
-        <div class="t-hl bot"></div>
-        <div class="t-inner">
-          <div class="t-icon">${cfg.icon()}</div>
-          <div>
-            <div class="t-label">${cfg.label}</div>
-            <div class="t-sub">${cfg.sub}</div>
-          </div>
-        </div>
-      </div>`
-  }).join('')
-}
-
-// ─── tile select ───────────────────────────────────────
-
-function selectTile(id) {
-  killCharts()
-  if (active === id) {
-    active = null
-    renderTiles()
-    document.getElementById('panel').innerHTML = ''
-    return
+  // neon glow plugin — draws each dataset line twice, second pass with shadowBlur
+  const neonPlugin={
+    id:'neon',
+    beforeDatasetDraw(chart,args){
+      if(!neonMode)return
+      const ctx=chart.ctx, i=args.index, col=DNEON[i%DNEON.length]
+      ctx.save(); ctx.shadowBlur=14; ctx.shadowColor=col.g
+    },
+    afterDatasetDraw(chart){if(neonMode)chart.ctx.restore()}
   }
-  active = id
-  renderTiles()
-  const html = ({ upload: uploadPanel, graph: graphPanel, compare: comparePanel, stats: statsPanel, metrics: metricsPanel, about: aboutPanel })[id]?.()
-  const panelEl = document.getElementById('panel')
-  panelEl.innerHTML = `<div class="panel-wrap"><div class="panel">${html||''}</div></div>`
-  const idx = TILES_CFG.findIndex(t => t.id === id)
-  setTimeout(() => ({ upload: initUpload, graph: initGraph, compare: initCompare, stats: initStats, metrics: initMetrics })[id]?.(), 50)
-  updateHdrStatus()
-}
 
-function killCharts() {
-  Object.values(charts).forEach(c => { try { c.destroy() } catch(e){} })
-  charts = {}
-}
-
-function updateHdrStatus() {
-  const el = document.getElementById('hdr-status')
-  if (datasets.length === 0) el.textContent = 'no data loaded'
-  else el.textContent = `${datasets.length} dataset${datasets.length>1?'s':''} · ${datasets.map(d=>d.label).join(', ')}`
-}
-
-// ─── panel header helper ───────────────────────────────
-
-function ph(iconFn, title, controls = '') {
-  return `<div class="ph">
-    <div class="ph-icon">${iconFn()}</div>
-    <div class="ph-title">${title}</div>
-    ${controls ? `<div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap">${controls}</div>` : ''}
-  </div>`
-}
-
-// ═══════════════════════════════════════════
-// UPLOAD
-// ═══════════════════════════════════════════
-
-function uploadPanel() {
-  return `
-    ${ph(icUpload, 'Upload Data')}
-    <div class="pb" style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
-      <div>
-        <div class="slabel">Apple Watch health export</div>
-        <div class="upload-zone" id="uz" onclick="document.getElementById('finput').click()">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" style="margin:0 auto 12px;display:block;color:var(--dimmer)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <div style="font-size:11px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:var(--dim);margin-bottom:5px">Drop export.xml</div>
-          <div style="font-size:9px;color:var(--dimmer);letter-spacing:0.1em;text-transform:uppercase;font-family:var(--mono)">or click to browse</div>
-        </div>
-        <input type="file" id="finput" accept=".xml,.csv" style="display:none" multiple>
-        <div style="margin-top:12px">
-          <div class="slabel">or use demo data</div>
-          <button onclick="loadDemo(1)" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border2);color:var(--dim);font-size:10px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:background 0.15s;margin-bottom:6px"
-            onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
-            Load Demo — Single Workout
-          </button>
-          <button onclick="loadDemo(2)" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border2);color:var(--dim);font-size:10px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:background 0.15s"
-            onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">
-            Load Demo — 4 Participants
-          </button>
-        </div>
-      </div>
-      <div>
-        <div class="slabel">loaded datasets</div>
-        <div id="ds-list" style="min-height:120px"></div>
-        <div id="ds-summary" style="display:none;margin-top:12px">
-          <div class="sdivider"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-            <div class="chartbox" style="text-align:center">
-              <div class="rlbl">Datasets</div>
-              <div id="us-n" class="rval">—</div>
-            </div>
-            <div class="chartbox" style="text-align:center">
-              <div class="rlbl">HR Records</div>
-              <div id="us-r" class="rval">—</div>
-            </div>
-            <div class="chartbox" style="text-align:center">
-              <div class="rlbl">Metrics</div>
-              <div id="us-m" class="rval">—</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`
-}
-
-function initUpload() {
-  const uz = document.getElementById('uz')
-  const fi = document.getElementById('finput')
-  uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag') })
-  uz.addEventListener('dragleave', () => uz.classList.remove('drag'))
-  uz.addEventListener('drop', e => {
-    e.preventDefault(); uz.classList.remove('drag')
-    Array.from(e.dataTransfer.files).forEach(f => parseFile(f))
-  })
-  fi.addEventListener('change', e => Array.from(e.target.files).forEach(f => parseFile(f)))
-  refreshDsList()
-}
-
-function parseFile(file) {
-  const r = new FileReader()
-  r.onload = e => {
-    if (file.name.endsWith('.xml')) {
-      const label = file.name.replace('export.xml','').replace('.xml','') || `Dataset ${datasets.length+1}`
-      const ds = parseXML(e.target.result, label || `DS${datasets.length+1}`)
-      if (!ds) { alert('No HR records found in this export.'); return }
-      ds.color = TILE_COLORS[datasets.length % TILE_COLORS.length].hex
-      datasets.push(ds)
-    } else {
-      alert('CSV import coming soon.')
-      return
+  const cjDS=active.map((ds,i)=>{
+    const col=neonMode?DNEON[i%DNEON.length].c:ds.color
+    return{
+      label:ds.label, data:ds.metrics[gMetric].map(p=>({x:p.t,y:p.v})),
+      borderColor:col, borderWidth:neonMode?1.4:1.7,
+      pointRadius:gStyle==='scatter'?1.5:0, pointHoverRadius:4, pointHoverBackgroundColor:col,
+      tension:gSmooth&&gStyle!=='scatter'?.36:0,
+      fill:gStyle==='area', backgroundColor:gStyle==='area'?ha(col,.1):'transparent',
     }
-    refreshDsList()
-    updateHdrStatus()
-    gActiveDS = datasets.map(d=>d.id)
-    sDs = [...gActiveDS]
-  }
-  r.readAsText(file)
-}
-
-function loadDemo(n) {
-  datasets = []
-  if (n === 1) {
-    datasets.push(makeDemo(0, 1337, 'Workout A'))
-  } else {
-    datasets.push(makeDemo(0, 1337, 'P1'))
-    datasets.push(makeDemo(1, 2674, 'P2'))
-    datasets.push(makeDemo(2, 5521, 'P3'))
-    datasets.push(makeDemo(3, 8832, 'P4'))
-  }
-  gActiveDS = datasets.map(d=>d.id)
-  sDs = [...gActiveDS]
-  refreshDsList()
-  updateHdrStatus()
-}
-
-function refreshDsList() {
-  const el = document.getElementById('ds-list')
-  const sum = document.getElementById('ds-summary')
-  if (!el) return
-  if (!datasets.length) {
-    el.innerHTML = `<div style="padding:32px 0;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">No datasets loaded</div>`
-    return
-  }
-  el.innerHTML = datasets.map(ds => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid var(--border);margin-bottom:6px">
-      <div style="width:8px;height:8px;border-radius:50%;background:${ds.color};box-shadow:0 0 8px ${ds.color};flex-shrink:0"></div>
-      <div style="flex:1">
-        <div style="font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:var(--text)">${ds.label}</div>
-        <div style="font-size:9px;color:var(--dimmer);font-family:var(--mono);margin-top:2px">${ds.metrics.hr?.length||0} HR records · ${Object.keys(ds.metrics).length} metrics · ${Math.round(ds.totalDur/60)}min</div>
-      </div>
-      <div style="text-align:right;font-family:var(--mono);font-size:9px;color:var(--dimmer)">
-        ${ds.rest} bpm rest<br>${ds.peak} bpm peak
-      </div>
-      <button onclick="removeDS(${ds.id})" style="width:22px;height:22px;border-radius:6px;border:none;background:rgba(248,113,113,0.08);color:#f87171;cursor:pointer;font-size:12px;flex-shrink:0">×</button>
-    </div>`).join('')
-
-  if (sum) {
-    sum.style.display = 'block'
-    const nRec = datasets.reduce((s,d)=>s+(d.metrics.hr?.length||0),0)
-    const nMet = new Set(datasets.flatMap(d=>Object.keys(d.metrics))).size
-    document.getElementById('us-n').textContent = datasets.length
-    document.getElementById('us-r').textContent = nRec
-    document.getElementById('us-m').textContent = nMet
-  }
-}
-
-function removeDS(id) {
-  datasets = datasets.filter(d=>d.id!==id)
-  gActiveDS = gActiveDS.filter(x=>x!==id)
-  sDs = sDs.filter(x=>x!==id)
-  refreshDsList()
-  updateHdrStatus()
-}
-
-// ═══════════════════════════════════════════
-// GRAPH
-// ═══════════════════════════════════════════
-
-function getAvailMetrics() {
-  const keys = new Set(datasets.flatMap(d=>Object.keys(d.metrics)))
-  return Object.entries(METRICS).filter(([k])=>keys.has(k))
-}
-
-function graphPanel() {
-  if (!datasets.length) return noDataMsg(icChart)
-
-  const metricOpts = getAvailMetrics()
-  const metricBtns = metricOpts.map(([k,m],i) => `
-    <button id="gm-${k}" onclick="setGMetric('${k}')"
-      style="padding:5px 12px;border-radius:8px;border:1px solid ${gMetric===k?'var(--border2)':'var(--border)'};background:${gMetric===k?'rgba(255,255,255,0.07)':'rgba(255,255,255,0.02)'};color:${gMetric===k?'var(--text)':'var(--dimmer)'};font-size:9px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:all 0.14s">
-      ${m.label}
-    </button>`).join('')
-
-  const dsChips = datasets.map(ds => `
-    <div class="ds-chip ${gActiveDS.includes(ds.id)?'on':''}" id="gc-${ds.id}" onclick="toggleGDS(${ds.id})">
-      <div style="width:6px;height:6px;border-radius:50%;background:${ds.color}"></div>
-      ${ds.label}
-    </div>`).join('')
-
-  return `
-    ${ph(icChart, 'Graph', `
-      <div style="display:flex;gap:6px">${dsChips}</div>
-      ${makeToggle('gsmooth',['Raw','Smooth'],gSmooth?1:0,'onGSmooth')}
-    `)}
-    <div class="pb">
-      <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap">${metricBtns}</div>
-      <div class="chartbox" style="height:320px">
-        <canvas id="g-canvas"></canvas>
-      </div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="font-size:9px;color:var(--dimmer);font-family:var(--mono)">scroll to zoom · drag to pan · double-click to reset</div>
-        <div style="margin-left:auto;display:flex;gap:8px">
-          <button onclick="exportGraphPNG()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);color:var(--dim);font-size:9px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:var(--font)">Export PNG</button>
-          <button onclick="exportGraphVideo()" id="vid-btn" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);color:var(--dim);font-size:9px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:var(--font)">Record Video</button>
-        </div>
-      </div>
-      <div id="g-stat-strip" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px"></div>
-    </div>`
-}
-
-function initGraph() {
-  buildGraph()
-  buildStatStrip()
-}
-
-window.onGSmooth = idx => { gSmooth = idx===1; killCharts(); buildGraph() }
-window.setGMetric = k => {
-  gMetric = k
-  document.querySelectorAll('[id^="gm-"]').forEach(b => {
-    const bk = b.id.replace('gm-','')
-    b.style.background = bk===k?'rgba(255,255,255,0.07)':'rgba(255,255,255,0.02)'
-    b.style.borderColor = bk===k?'var(--border2)':'var(--border)'
-    b.style.color = bk===k?'var(--text)':'var(--dimmer)'
   })
-  killCharts(); buildGraph(); buildStatStrip()
-}
-window.toggleGDS = id => {
-  if (gActiveDS.includes(id)) gActiveDS = gActiveDS.filter(x=>x!==id)
-  else gActiveDS.push(id)
-  document.getElementById(`gc-${id}`)?.classList.toggle('on', gActiveDS.includes(id))
-  killCharts(); buildGraph()
-}
 
-function buildGraph() {
-  const canvas = document.getElementById('g-canvas')
-  if (!canvas) return
-  const m = METRICS[gMetric]
-  const datasets_cj = datasets.filter(d => gActiveDS.includes(d.id) && d.metrics[gMetric]).map(ds => ({
-    label: ds.label,
-    data: ds.metrics[gMetric].map(p => ({ x: p.t, y: p.v })),
-    borderColor: ds.color,
-    borderWidth: 1.8,
-    pointRadius: 0,
-    tension: gSmooth ? 0.4 : 0,
-    fill: false,
-    pointHoverRadius: 4,
-    pointHoverBackgroundColor: ds.color,
-  }))
+  const gc=theme==='light'?'rgba(0,0,0,0.07)':'rgba(255,255,255,0.045)'
+  const tc=theme==='light'?'rgba(0,0,0,.3)':'rgba(255,255,255,.22)'
+  const tbg=theme==='light'?'rgba(240,240,244,.98)':'rgba(6,6,10,.97)'
 
-  if (!datasets_cj.length) return
-
-  charts.g = new Chart(canvas, {
-    type: 'line',
-    data: { datasets: datasets_cj },
-    options: {
-      responsive: true, maintainAspectRatio: false, parsing: false,
-      animation: { duration: 350 },
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          type: 'linear',
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: {
-            color: 'rgba(255,255,255,0.22)', font: { size: 9, family: 'JetBrains Mono' },
-            callback: v => `${Math.floor(v/60)}:${String(Math.round(v%60)).padStart(2,'0')}`,
-            maxTicksLimit: 10
-          }
-        },
-        y: {
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: 'rgba(255,255,255,0.22)', font: { size: 9, family: 'JetBrains Mono' }, callback: v => `${v} ${m.unit}` }
-        }
+  charts.g=new Chart(canvas,{
+    type:gStyle==='scatter'?'scatter':'line',
+    data:{datasets:cjDS},
+    options:{
+      responsive:false,maintainAspectRatio:false,parsing:false,
+      animation:{duration:650,easing:'easeInOutQuart'},
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{type:'linear',grid:{color:gc,drawBorder:false},ticks:{color:tc,font:{size:9,family:'Courier New'},maxTicksLimit:10,callback:v=>`${Math.floor(v/60)}:${String(Math.round(v%60)).padStart(2,'0')}`}},
+        y:{grid:{color:gc,drawBorder:false},ticks:{color:tc,font:{size:9,family:'Courier New'},callback:v=>`${v} ${m.unit}`}}
       },
-      plugins: {
-        legend: { display: false },
-        zoom: {
-          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
-          pan: { enabled: true, mode: 'x' }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(9,9,11,0.97)',
-          borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1,
-          titleFont: { size: 9, family: 'JetBrains Mono' }, titleColor: 'rgba(255,255,255,0.3)',
-          bodyFont: { size: 10, family: 'JetBrains Mono' }, bodyColor: 'rgba(255,255,255,0.7)',
-          callbacks: {
-            title: items => {
-              const t = items[0].parsed.x
-              return `${Math.floor(t/60)}m ${Math.round(t%60)}s`
-            },
-            label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} ${m.unit}`
-          }
-        }
+      plugins:{
+        legend:{display:false},
+        zoom:{zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'},pan:{enabled:true,mode:'x'}},
+        tooltip:{backgroundColor:tbg,borderColor:'rgba(255,255,255,.08)',borderWidth:1,
+          titleFont:{size:8,family:'Courier New'},titleColor:theme==='light'?'rgba(0,0,0,.35)':'rgba(255,255,255,.3)',
+          bodyFont:{size:10,family:'Courier New'},bodyColor:theme==='light'?'rgba(0,0,0,.7)':'rgba(255,255,255,.7)',
+          callbacks:{title:items=>{const t=items[0].parsed.x; return`${Math.floor(t/60)}m ${Math.round(t%60)}s`},label:item=>` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} ${m.unit}`}}
       }
     },
-    plugins: [ChartZoom]
+    plugins:[ChartZoom,neonPlugin]
   })
-
-  canvas.addEventListener('dblclick', () => { charts.g?.resetZoom() })
+  canvas.addEventListener('dblclick',()=>charts.g?.resetZoom())
 }
 
-function buildStatStrip() {
-  const el = document.getElementById('g-stat-strip')
-  if (!el) return
-  const m = METRICS[gMetric]
-  const active = datasets.filter(d => gActiveDS.includes(d.id) && d.metrics[gMetric])
-  el.innerHTML = active.map(ds => {
-    const pts = ds.metrics[gMetric]
-    const vals = pts.map(p=>p.v)
-    const mean = vals.reduce((a,b)=>a+b,0)/vals.length
-    const max = Math.max(...vals), min = Math.min(...vals)
-    const sd = Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/vals.length)
-    return `
-      <div class="chartbox">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-          <div style="width:5px;height:5px;border-radius:50%;background:${ds.color}"></div>
-          <span style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)">${ds.label}</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--mono);font-size:9px">
-          <div style="color:var(--dimmer)">mean</div><div style="color:var(--text)">${mean.toFixed(1)}</div>
-          <div style="color:var(--dimmer)">max</div><div style="color:var(--text)">${max.toFixed(1)}</div>
-          <div style="color:var(--dimmer)">min</div><div style="color:var(--text)">${min.toFixed(1)}</div>
-          <div style="color:var(--dimmer)">sd</div><div style="color:var(--text)">${sd.toFixed(1)}</div>
-        </div>
-      </div>`
+function buildStrip(){
+  const el=document.getElementById('strip'); if(!el)return
+  const m=MCFG[gMetric], active=datasets.filter(d=>activeDS.includes(d.id)&&d.metrics[gMetric])
+  if(!active.length){el.innerHTML='';return}
+  el.innerHTML=active.map(ds=>{
+    const v=ds.metrics[gMetric].map(p=>p.v), mn=avg(v)
+    const sd=Math.sqrt(v.reduce((s,x)=>s+(x-mn)**2,0)/v.length)
+    return`<div class="sc"><div class="sc-l">${dot(ds.color)}${ds.label}</div><div class="sc-v">${mn.toFixed(1)}<span style="font-size:9px;color:var(--dd)"> ${m.unit}</span></div><div class="sc-s">↑${Math.max(...v).toFixed(0)} ↓${Math.min(...v).toFixed(0)} σ${sd.toFixed(1)} n=${v.length}</div></div>`
   }).join('')
 }
 
-function exportGraphPNG() {
-  const canvas = document.getElementById('g-canvas')
-  if (!canvas) return
-  const link = document.createElement('a')
-  link.download = `cv-tool-${gMetric}-${Date.now()}.png`
-  link.href = canvas.toDataURL('image/png')
-  link.click()
-}
-
-function exportGraphVideo() {
-  const canvas = document.getElementById('g-canvas')
-  const btn = document.getElementById('vid-btn')
-  if (!canvas || !charts.g) return
-
-  const stream = canvas.captureStream(30)
-  const rec = new MediaRecorder(stream, { mimeType: 'video/webm' })
-  const chunks = []
-  rec.ondataavailable = e => chunks.push(e.data)
-  rec.onstop = () => {
-    const blob = new Blob(chunks, { type: 'video/webm' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.download = `cv-tool-${gMetric}-${Date.now()}.webm`
-    a.href = url; a.click()
-    URL.revokeObjectURL(url)
-    btn.textContent = 'Record Video'
-  }
-
-  // animate zoom reset
-  charts.g.resetZoom()
-  rec.start()
-  btn.textContent = '⏹ Stop'
-  btn.onclick = () => rec.stop()
-}
-
-// ═══════════════════════════════════════════
-// COMPARE
-// ═══════════════════════════════════════════
-
-const CMP_M = [
-  { label:'HR mean',       fn: (ds,m) => { const v=ds.metrics.hr?.map(p=>p.v)||[]; return v.reduce((a,b)=>a+b,0)/v.length } },
-  { label:'HR peak',       fn: (ds,m) => Math.max(...(ds.metrics.hr?.map(p=>p.v)||[0])) },
-  { label:'HR min',        fn: (ds,m) => Math.min(...(ds.metrics.hr?.map(p=>p.v)||[999])) },
-  { label:'HRV mean',      fn: (ds,m) => { const v=ds.metrics.hrv?.map(p=>p.v)||[]; return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null } },
-  { label:'SpO₂ mean',    fn: (ds,m) => { const v=ds.metrics.spo2?.map(p=>p.v)||[]; return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null } },
-  { label:'Total energy',  fn: (ds,m) => { const v=ds.metrics.energy?.map(p=>p.v)||[]; return v.length ? v[v.length-1] : null } },
+// ── COMPARE ─────────────────────────────────────────────
+const CMPS=[
+  {l:'HR mean',  g:d=>avg(d.metrics.hr?.map(p=>p.v))},
+  {l:'HR peak',  g:d=>Math.max(...(d.metrics.hr?.map(p=>p.v)||[0]))},
+  {l:'HR min',   g:d=>Math.min(...(d.metrics.hr?.map(p=>p.v)||[999]))},
+  {l:'HR range', g:d=>{const v=d.metrics.hr?.map(p=>p.v)||[]; return Math.max(...v)-Math.min(...v)}},
+  {l:'HRV mean', g:d=>avg(d.metrics.hrv?.map(p=>p.v))},
+  {l:'SpO₂',    g:d=>avg(d.metrics.spo2?.map(p=>p.v))},
+  {l:'Energy',   g:d=>{const v=d.metrics.energy?.map(p=>p.v)||[]; return v.length?v[v.length-1]:null}},
 ]
 
-function comparePanel() {
-  if (datasets.length < 2) return noDataMsg(icCompare, 'Load 2+ datasets to compare')
-
-  const metBtns = CMP_M.map((m,i)=>`
-    <button id="cm-${i}" onclick="setCmpM(${i})"
-      style="padding:5px 12px;border-radius:8px;border:1px solid ${cmpMetric===i?'var(--border2)':'var(--border)'};background:${cmpMetric===i?'rgba(255,255,255,0.07)':'rgba(255,255,255,0.02)'};color:${cmpMetric===i?'var(--text)':'var(--dimmer)'};font-size:9px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:all 0.14s">
-      ${m.label}
-    </button>`).join('')
-
-  return `
-    ${ph(icCompare, 'Compare')}
-    <div class="pb">
-      <div style="display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap">${metBtns}</div>
-      <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
-        <div class="chartbox" style="height:280px"><canvas id="cmp-canvas"></canvas></div>
-        <div>
-          <div class="slabel">Pairwise differences</div>
-          <div id="cmp-pairs"></div>
-          <div class="sdivider"></div>
-          <div id="cmp-summary" style="font-size:11px;color:var(--dim);line-height:1.65"></div>
+function rCompare(el){
+  if(datasets.length<2){el.innerHTML=empty('Load 2+ datasets to compare.'); return}
+  const mB=CMPS.map((m,i)=>`<button id="cm-${i}" onclick="setCM(${i})" style="padding:3px 8px;border-radius:5px;border:1px solid ${cmpM===i?'var(--b2)':'var(--b)'};background:${cmpM===i?'var(--b)':'var(--s2)'};color:${cmpM===i?'var(--t)':'var(--dd)'};font-size:8px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:all .12s">${m.l}</button>`).join('')
+  el.innerHTML=`
+    <div class="cmp-sect">
+      <div class="shdr"><span class="shdr-title">Compare</span><div style="display:flex;gap:5px;margin-left:8px;flex-wrap:wrap">${mB}</div></div>
+      <div style="display:grid;grid-template-columns:1fr 270px;flex:1;min-height:0;overflow:hidden">
+        <div style="padding:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <div style="flex:1;min-height:0"><canvas id="cc" style="width:100%;height:100%"></canvas></div>
+        </div>
+        <div style="border-left:1px solid var(--b);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+          <div><div class="slbl">values</div><div id="cv"></div></div>
+          <div><div class="slbl">differences</div><div id="cd"></div></div>
+          <div id="cs" class="csm" style="font-size:9px;color:var(--d);font-family:var(--mono);line-height:1.8"></div>
         </div>
       </div>
     </div>`
+  setTimeout(buildCmp,30)
 }
 
-function initCompare() { buildCompare() }
+window.setCM=i=>{cmpM=i; document.querySelectorAll('[id^="cm-"]').forEach((b,j)=>{b.style.background=j===i?'var(--b)':'var(--s2)'; b.style.borderColor=j===i?'var(--b2)':'var(--b)'; b.style.color=j===i?'var(--t)':'var(--dd)'}); killCharts(); buildCmp()}
 
-window.setCmpM = i => {
-  cmpMetric = i
-  document.querySelectorAll('[id^="cm-"]').forEach((b,j) => {
-    b.style.background = j===i?'rgba(255,255,255,0.07)':'rgba(255,255,255,0.02)'
-    b.style.borderColor = j===i?'var(--border2)':'var(--border)'
-    b.style.color = j===i?'var(--text)':'var(--dimmer)'
+function buildCmp(){
+  const canvas=document.getElementById('cc'); if(!canvas)return
+  const m=CMPS[cmpM], vals=datasets.map(d=>({d,v:m.g(d)})).filter(x=>x.v!==null)
+  if(vals.length<2)return
+  const area=canvas.parentElement; canvas.width=area.clientWidth; canvas.height=area.clientHeight
+  const gc=theme==='light'?'rgba(0,0,0,0.07)':'rgba(255,255,255,0.04)'
+  charts.c=new Chart(canvas,{
+    type:'bar',
+    data:{labels:vals.map(x=>x.d.label),datasets:[{data:vals.map(x=>x.v),backgroundColor:vals.map(x=>ha(x.d.color,.32)),borderColor:vals.map(x=>x.d.color),borderWidth:1.4,borderRadius:5}]},
+    options:{responsive:false,maintainAspectRatio:false,animation:{duration:380},
+      scales:{x:{grid:{display:false},ticks:{color:theme==='light'?'rgba(0,0,0,.35)':'rgba(255,255,255,.38)',font:{size:10,family:'Courier New',weight:'700'}}},
+        y:{grid:{color:gc},ticks:{color:theme==='light'?'rgba(0,0,0,.28)':'rgba(255,255,255,.22)',font:{size:9,family:'Courier New'},callback:v=>v.toFixed(1)}}},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:theme==='light'?'rgba(240,240,244,.98)':'rgba(6,6,10,.97)',borderColor:'rgba(255,255,255,.07)',borderWidth:1,bodyFont:{size:10,family:'Courier New'},bodyColor:theme==='light'?'rgba(0,0,0,.7)':'rgba(255,255,255,.7)',callbacks:{label:i=>` ${i.parsed.y.toFixed(3)}`}}}}
   })
-  killCharts(); buildCompare()
+  const cv=document.getElementById('cv'),cd=document.getElementById('cd'),cs=document.getElementById('cs')
+  if(cv)cv.innerHTML=vals.map(x=>`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;background:var(--s2);border:1px solid var(--b);margin-bottom:3px">${dot(x.d.color)}<span style="font-size:9px;font-weight:700;color:var(--d);flex:1;font-family:var(--mono)">${x.d.label}</span><span style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--t)">${x.v.toFixed(2)}</span></div>`).join('')
+  if(cd){let o=''; for(let i=0;i<vals.length;i++)for(let j=i+1;j<vals.length;j++){const d=vals[i].v-vals[j].v; o+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:var(--s2);border:1px solid var(--b);margin-bottom:3px"><span style="font-size:8px;font-weight:700;color:var(--dd);flex:1;font-family:var(--mono)">${vals[i].d.label} vs ${vals[j].d.label}</span><span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${d>0?'#f87171':'#4ade80'}">${d>0?'+':''}${d.toFixed(2)}</span></div>`} cd.innerHTML=o}
+  if(cs){const vs=vals.map(x=>x.v),mn=Math.min(...vs),mx=Math.max(...vs); cs.innerHTML=`range: ${mn.toFixed(2)} – ${mx.toFixed(2)}<br>spread: ${((mx-mn)/mn*100).toFixed(1)}%`}
 }
 
-function buildCompare() {
-  const canvas = document.getElementById('cmp-canvas')
-  if (!canvas) return
-  const m = CMP_M[cmpMetric]
-  const vals = datasets.map(ds => ({ ds, v: m.fn(ds) })).filter(x => x.v !== null)
-
-  charts.cmp = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: vals.map(x=>x.ds.label),
-      datasets: [{
-        data: vals.map(x=>x.v),
-        backgroundColor: vals.map(x=>x.ds.color+'55'),
-        borderColor: vals.map(x=>x.ds.color),
-        borderWidth: 1.5, borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 320 },
-      scales: {
-        x: { grid:{display:false}, ticks:{color:'rgba(255,255,255,0.4)',font:{size:10,family:'Outfit',weight:'700'}} },
-        y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.22)',font:{size:9,family:'JetBrains Mono'},callback:v=>v.toFixed(1)} }
-      },
-      plugins: {
-        legend: { display:false },
-        tooltip: {
-          backgroundColor:'rgba(9,9,11,0.97)', borderColor:'rgba(255,255,255,0.07)', borderWidth:1,
-          bodyFont:{size:10,family:'JetBrains Mono'}, bodyColor:'rgba(255,255,255,0.7)',
-          callbacks: { label: item=>`${item.parsed.y.toFixed(2)}` }
-        }
-      }
-    }
-  })
-
-  const pairsEl = document.getElementById('cmp-pairs')
-  const sumEl   = document.getElementById('cmp-summary')
-  if (!pairsEl || vals.length < 2) return
-
-  pairsEl.innerHTML = ''
-  for (let i = 0; i < vals.length; i++) {
-    for (let j = i+1; j < vals.length; j++) {
-      const d = vals[i].v - vals[j].v
-      pairsEl.innerHTML += `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;background:rgba(255,255,255,0.02);border:1px solid var(--border);margin-bottom:4px">
-          <span style="font-size:9px;font-weight:700;color:var(--dimmer);flex:1;font-family:var(--mono)">${vals[i].ds.label} vs ${vals[j].ds.label}</span>
-          <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${d>0?'#f87171':'#4ade80'}">${d>0?'+':''}${d.toFixed(2)}</span>
-        </div>`
-    }
-  }
-
-  if (sumEl) {
-    const vs = vals.map(x=>x.v)
-    const mn = Math.min(...vs), mx = Math.max(...vs)
-    const pct = ((mx-mn)/mn*100).toFixed(1)
-    sumEl.innerHTML = `Range: <strong style="color:var(--text)">${mn.toFixed(1)} – ${mx.toFixed(1)}</strong><br>Spread: <strong style="color:var(--text)">${pct}%</strong> across datasets`
-  }
-}
-
-// ═══════════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════════
-
-const STAT_METRICS = [
-  { label:'HR mean',        get: ds => { const v=ds.metrics.hr?.map(p=>p.v)||[]; return v.reduce((a,b)=>a+b,0)/v.length } },
-  { label:'HR peak',        get: ds => Math.max(...(ds.metrics.hr?.map(p=>p.v)||[0])) },
-  { label:'HR final 10%',   get: ds => { const v=(ds.metrics.hr||[]).slice(-Math.ceil((ds.metrics.hr||[]).length*0.1)).map(p=>p.v); return v.reduce((a,b)=>a+b,0)/v.length } },
-  { label:'HRV mean',       get: ds => { const v=ds.metrics.hrv?.map(p=>p.v)||[]; return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null } },
-  { label:'SpO₂ mean',     get: ds => { const v=ds.metrics.spo2?.map(p=>p.v)||[]; return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null } },
-  { label:'HR × SpO₂ covariance', get: null }, // special case
+// ── STATS ────────────────────────────────────────────────
+const SMS=[
+  {l:'HR mean',       g:d=>avg(d.metrics.hr?.map(p=>p.v))},
+  {l:'HR peak',       g:d=>Math.max(...(d.metrics.hr?.map(p=>p.v)||[0]))},
+  {l:'HR final 10%',  g:d=>{const v=(d.metrics.hr||[]).slice(-Math.ceil((d.metrics.hr||[]).length*.1)).map(p=>p.v);return avg(v)}},
+  {l:'HR SD',         g:d=>{const v=d.metrics.hr?.map(p=>p.v)||[],m=avg(v);return Math.sqrt(v.reduce((s,x)=>s+(x-m)**2,0)/v.length)}},
+  {l:'HRV mean',      g:d=>avg(d.metrics.hrv?.map(p=>p.v))},
+  {l:'SpO₂ mean',    g:d=>avg(d.metrics.spo2?.map(p=>p.v))},
+]
+const STS=[
+  {l:'Wilcoxon signed-rank',paired:true,corr:false},
+  {l:'Sign test',           paired:true,corr:false},
+  {l:'Paired t-test',       paired:true,corr:false},
+  {l:'Mann–Whitney U',      paired:false,corr:false},
+  {l:'Pearson r',           paired:false,corr:true},
+  {l:'Spearman ρ',          paired:false,corr:true},
+  {l:'Kruskal–Wallis H',    paired:false,corr:false,multi:true},
 ]
 
-const STAT_TESTS = [
-  { label: 'Wilcoxon Signed-Rank', paired: true },
-  { label: 'Sign Test',            paired: true },
-  { label: 'Paired t-Test',        paired: true },
-  { label: 'Mann–Whitney U',       paired: false },
-  { label: 'Pearson Correlation',  paired: false, corr: true },
-  { label: 'Spearman Correlation', paired: false, corr: true },
-]
-
-function statsPanel() {
-  if (datasets.length < 2) return noDataMsg(icSigma, 'Load 2+ datasets to run statistics')
-
-  const dsChips = datasets.map(ds=>`
-    <div class="ds-chip ${sDs.includes(ds.id)?'on':''}" id="sc-${ds.id}" onclick="toggleSDS(${ds.id})">
-      <div style="width:5px;height:5px;border-radius:50%;background:${ds.color}"></div>${ds.label}
-    </div>`).join('')
-
-  const mRows = STAT_METRICS.map((m,i)=>`
-    <div class="stat-row ${sMetric===i?'on':''}" id="sm-${i}" onclick="setSM(${i})">
-      <input type="radio" name="smet" ${sMetric===i?'checked':''} style="accent-color:var(--text);flex-shrink:0">
-      <span>${m.label}</span>
-    </div>`).join('')
-
-  const tRows = STAT_TESTS.map((t,i)=>`
-    <div class="stat-row ${sTest===i?'on':''}" id="st-${i}" onclick="setST(${i})">
-      <input type="radio" name="stest" ${sTest===i?'checked':''} style="accent-color:var(--text);flex-shrink:0">
-      <span>${t.label}</span>
-    </div>`).join('')
-
-  return `
-    ${ph(icSigma, 'Stats Sandbox', `<div style="display:flex;gap:6px">${dsChips}</div>`)}
-    <div class="pb" style="display:grid;grid-template-columns:220px 1fr;gap:20px;min-height:420px">
-      <div>
-        <div class="slabel">Metric</div>
-        <div id="sm-group">${mRows}</div>
-        <div class="sdivider"></div>
-        <div class="slabel">Test</div>
-        <div id="st-group">${tRows}</div>
-      </div>
-      <div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px" id="stat-cards"></div>
-        <div id="stat-output" class="chartbox" style="font-family:var(--mono);font-size:10px;line-height:2;color:var(--dim);margin-bottom:12px"></div>
-        <div id="stat-tbl"></div>
-        <div id="stat-interp" style="margin-top:12px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--border);font-size:11px;color:var(--dim);line-height:1.7;display:none"></div>
+function rStats(el){
+  if(datasets.length<2){el.innerHTML=empty('Load 2+ datasets to run statistical tests.'); return}
+  const chips=datasets.map(d=>`<div class="chip ${sSelDS.includes(d.id)?'on':''}" id="sc-${d.id}" onclick="tgSDS(${d.id})">${dot(d.color)}${d.label}</div>`).join('')
+  const mR=SMS.map((m,i)=>`<div class="ritem ${sMetric===i?'on':''}" id="sm-${i}" onclick="setSM(${i})"><input type="radio" name="sm" ${sMetric===i?'checked':''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0"><span>${m.l}</span></div>`).join('')
+  const tR=STS.map((t,i)=>`<div class="ritem ${sTest===i?'on':''}" id="st-${i}" onclick="setST(${i})"><input type="radio" name="st" ${sTest===i?'checked':''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0"><span>${t.l}</span></div>`).join('')
+  el.innerHTML=`
+    <div class="s-sect">
+      <div class="shdr"><span class="shdr-title">Stats Sandbox</span><div style="display:flex;gap:4px;margin-left:8px;flex-wrap:wrap">${chips}</div></div>
+      <div style="display:flex;flex:1;min-height:0;overflow:hidden">
+        <div class="s-ctrl">
+          <div><div class="slbl">Metric</div><div style="display:flex;flex-direction:column;gap:3px">${mR}</div></div>
+          <div><div class="slbl">Test</div><div style="display:flex;flex-direction:column;gap:3px">${tR}</div></div>
+          <button onclick="runStats()" style="padding:7px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--d);font-size:8px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;cursor:pointer;font-family:var(--font);transition:all .12s;width:100%"
+            onmouseover="this.style.background='var(--b)';this.style.color='var(--t)'"
+            onmouseout="this.style.background='var(--s2)';this.style.color='var(--d)'">Run Test ▶</button>
+        </div>
+        <div class="s-out" id="so"><div style="color:var(--dd);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding-top:40px;text-align:center">Configure and run a test</div></div>
       </div>
     </div>`
 }
 
-function initStats() { runStats() }
+window.tgSDS=id=>{if(sSelDS.includes(id))sSelDS=sSelDS.filter(x=>x!==id); else sSelDS.push(id); document.getElementById(`sc-${id}`)?.classList.toggle('on',sSelDS.includes(id))}
+window.setSM=i=>{sMetric=i; document.querySelectorAll('[id^="sm-"]').forEach((e,j)=>e.classList.toggle('on',j===i))}
+window.setST=i=>{sTest=i; document.querySelectorAll('[id^="st-"]').forEach((e,j)=>e.classList.toggle('on',j===i))}
 
-window.toggleSDS = id => {
-  if (sDs.includes(id)) sDs = sDs.filter(x=>x!==id)
-  else sDs.push(id)
-  document.getElementById(`sc-${id}`)?.classList.toggle('on', sDs.includes(id))
-  runStats()
-}
-window.setSM = i => {
-  sMetric = i
-  document.querySelectorAll('[id^="sm-"]').forEach((el,j) => el.classList.toggle('on', j===i))
-  runStats()
-}
-window.setST = i => {
-  sTest = i
-  document.querySelectorAll('[id^="st-"]').forEach((el,j) => el.classList.toggle('on', j===i))
-  runStats()
-}
+function runStats(){
+  const out=document.getElementById('so'); if(!out)return
+  const sel=datasets.filter(d=>sSelDS.includes(d.id))
+  if(sel.length<2){out.innerHTML=`<div style="color:var(--dd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em">Select ≥ 2 datasets</div>`; return}
+  const m=SMS[sMetric], test=STS[sTest]
+  const vals=sel.map(d=>({d,v:m.g(d)})).filter(x=>x.v!==null)
+  if(vals.length<2){out.innerHTML=`<div style="color:var(--dd);font-size:9px">Metric not available</div>`; return}
+  let pVal,efStr,statStr,ciStr='',interp=''
 
-function runStats() {
-  const cardsEl  = document.getElementById('stat-cards')
-  const outEl    = document.getElementById('stat-output')
-  const tblEl    = document.getElementById('stat-tbl')
-  const interpEl = document.getElementById('stat-interp')
-  if (!cardsEl) return
-
-  const active = datasets.filter(d=>sDs.includes(d.id))
-  if (active.length < 2) {
-    cardsEl.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">Need ≥ 2 datasets selected</div>`
-    return
-  }
-
-  const m = STAT_METRICS[sMetric]
-  const test = STAT_TESTS[sTest]
-
-  // get values
-  let vals = active.map(ds => ({ ds, v: m.get ? m.get(ds) : null })).filter(x => x.v !== null)
-  if (vals.length < 2) {
-    cardsEl.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700">Metric not available for selected datasets</div>`
-    return
-  }
-
-  const x = vals.map(v=>v.v)
-  let result, pVal, effectSize, effectLabel, statStr
-
-  if (test.corr) {
-    // correlation between first two datasets' HR series (time-matched)
-    const ds1 = active[0], ds2 = active[1]
-    const p1 = ds1.metrics.hr||[], p2 = ds2.metrics.hr||[]
-    const paired = []
-    p1.forEach(a => {
-      const b = p2.find(pp => Math.abs(pp.t - a.t) < 15)
-      if (b) paired.push([a.v, b.v])
-    })
-    if (paired.length < 4) {
-      cardsEl.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700">Not enough overlapping timepoints</div>`
-      return
-    }
-    const cx = paired.map(p=>p[0]), cy = paired.map(p=>p[1])
-    result = sTest === 4 ? pearson(cx,cy) : spearman(cx,cy)
-    pVal = result.p; effectSize = result.r.toFixed(3); effectLabel = `r = ${result.r.toFixed(3)}`
-    statStr = `${sTest===4?'r':'ρ'}(${result.n-2}) = ${result.r.toFixed(4)}, p = ${pFmt(pVal)}`
-  } else if (test.paired) {
-    if (vals.length !== 2) {
-      cardsEl.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700">Paired tests require exactly 2 datasets</div>`
-      return
-    }
-    // for paired tests we use the metric value as a single observation per dataset
-    // and bootstrap from within-dataset samples
-    const ds1 = active[0], ds2 = active[1]
-    const pts1 = (ds1.metrics.hr||[]).map(p=>p.v), pts2 = (ds2.metrics.hr||[]).map(p=>p.v)
-    const minN = Math.min(pts1.length, pts2.length)
-    const sub1 = pts1.slice(0, minN), sub2 = pts2.slice(0, minN)
-
-    if (sTest === 0) {
-      result = wilcoxon(sub1, sub2)
-      if (!result) { cardsEl.innerHTML = `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px">Insufficient data</div>`; return }
-      pVal = result.p; effectSize = result.r.toFixed(3)
-      effectLabel = `r = ${result.r.toFixed(3)} (${result.r>0.5?'large':result.r>0.3?'medium':'small'})`
-      statStr = `W+ = ${result.Wp.toFixed(1)}, W− = ${result.Wm.toFixed(1)}, W = ${result.W.toFixed(1)}, n = ${result.n}`
-    } else if (sTest === 1) {
-      result = signTest(sub1, sub2)
-      pVal = result.p; effectSize = `${result.k}/${result.n}`
-      effectLabel = `${result.k} of ${result.n} positive`
-      statStr = `k = ${result.k}, n = ${result.n}`
-    } else if (sTest === 2) {
-      result = pairedT(sub1, sub2)
-      pVal = result.p; effectSize = result.d.toFixed(3)
-      effectLabel = `d = ${result.d.toFixed(3)} (${Math.abs(result.d)>0.8?'large':Math.abs(result.d)>0.5?'medium':'small'})`
-      statStr = `t(${result.n-1}) = ${result.t.toFixed(3)}, mean Δ = ${result.mean.toFixed(2)}, SE = ${result.se.toFixed(2)}`
-    }
+  if(test.corr){
+    const p1=sel[0].metrics.hr||[],p2=sel[1].metrics.hr||[],pairs=[]
+    p1.forEach(a=>{const b=p2.find(p=>Math.abs(p.t-a.t)<15); if(b)pairs.push([a.v,b.v])})
+    if(pairs.length<4){out.innerHTML=`<div style="color:var(--dd);font-size:9px">Not enough overlapping timepoints</div>`; return}
+    const cx=pairs.map(p=>p[0]),cy=pairs.map(p=>p[1])
+    const res=sTest===4?pearson(cx,cy):spearman(cx,cy)
+    pVal=res.p; efStr=`r = ${res.r.toFixed(4)}`; statStr=`${sTest===4?'r':'ρ'}(${res.n-2}) = ${res.r.toFixed(4)}, p = ${pfmt(pVal)}`
+    interp=interpStr(pVal,Math.abs(res.r),'r')
+  } else if(test.multi){
+    const groups=vals.map(x=>{const d=sel.find(dd=>dd.id===x.d.id); return d?.metrics.hr?.map(p=>p.v)||[x.v]})
+    const res=kw(groups); pVal=res.p; efStr=`η² ≈ ${res.eta2.toFixed(3)}`
+    statStr=`H(${res.df}) = ${res.H.toFixed(3)}, p = ${pfmt(pVal)}, k = ${groups.length}`
+    interp=pVal<.05?'Significant group difference detected.':'No significant group difference.'
+  } else if(test.paired){
+    if(vals.length!==2){out.innerHTML=`<div style="color:var(--dd);font-size:9px">Paired tests require exactly 2 datasets</div>`; return}
+    const p1=sel[0].metrics.hr?.map(p=>p.v)||[],p2=sel[1].metrics.hr?.map(p=>p.v)||[]
+    const n=Math.min(p1.length,p2.length),s1=p1.slice(0,n),s2=p2.slice(0,n), res
+    if(sTest===0){const r=wilcox(s1,s2); pVal=r.p; efStr=`r = ${r.r.toFixed(3)} (${efl(r.r,'r')})`; statStr=`W+ = ${r.Wp.toFixed(1)}, W− = ${r.Wm.toFixed(1)}, n = ${r.n}`}
+    else if(sTest===1){const r=signT(s1,s2); pVal=r.p; efStr=`${r.k}/${r.n} positive`; statStr=`k = ${r.k}, n = ${r.n}`}
+    else{const r=pttest(s1,s2); pVal=r.p; efStr=`d = ${r.d.toFixed(3)} (${efl(Math.abs(r.d),'d')})`; statStr=`t(${r.n-1}) = ${r.t.toFixed(3)}, Δ = ${r.mean.toFixed(2)}, SE = ${r.se.toFixed(2)}`}
+    const ci=bsCI(s1,s2,800); ciStr=`95% CI (bootstrap): [${ci.lo.toFixed(2)}, ${ci.hi.toFixed(2)}]`
+    interp=interpStr(pVal,sTest===2?Math.abs(wilcox(s1,s2)?.r||0):0,'r')
   } else {
-    // Mann-Whitney unpaired
-    if (vals.length !== 2) { cardsEl.innerHTML=`<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--dimmer);font-size:10px;font-weight:700">Select exactly 2 datasets</div>`; return }
-    const pts1 = (active[0].metrics.hr||[]).map(p=>p.v)
-    const pts2 = (active[1].metrics.hr||[]).map(p=>p.v)
-    result = mannWhitney(pts1, pts2)
-    pVal = result.p; effectSize = result.r.toFixed(3)
-    effectLabel = `r = ${result.r.toFixed(3)} (${result.r>0.5?'large':result.r>0.3?'medium':'small'})`
-    statStr = `U = ${result.U.toFixed(1)}, Z = ${result.Z.toFixed(3)}, n₁=${result.nx}, n₂=${result.ny}`
+    if(vals.length!==2){out.innerHTML=`<div style="color:var(--dd);font-size:9px">Select exactly 2 datasets</div>`; return}
+    const p1=sel[0].metrics.hr?.map(p=>p.v)||[],p2=sel[1].metrics.hr?.map(p=>p.v)||[]
+    const res=mwu(p1,p2); pVal=res.p; efStr=`r = ${res.r.toFixed(3)} (${efl(res.r,'r')})`
+    statStr=`U = ${res.U.toFixed(1)}, Z = ${res.Z.toFixed(3)}, n₁=${res.nx}, n₂=${res.ny}`
+    interp=interpStr(pVal,res.r,'r')
   }
 
-  // 95% CI via bootstrap (only for simple paired/unpaired mean diff)
-  let ciStr = ''
-  if (!test.corr && vals.length === 2 && !test.corr) {
-    const p1 = (active[0].metrics.hr||[]).map(p=>p.v)
-    const p2 = (active[1].metrics.hr||[]).map(p=>p.v)
-    const mn = Math.min(p1.length, p2.length)
-    const ci = bootstrap95CI(p1.slice(0,mn), p2.slice(0,mn), null, 1000)
-    ciStr = `95% CI (bootstrap): [${ci.lo.toFixed(2)}, ${ci.hi.toFixed(2)}]`
-  }
+  const pc=pVal<.05?'#4ade80':pVal<.1?'#fbbf24':'#f87171'
+  const sb=pVal<.05?`<span class="badge bg">p &lt; 0.05 — significant</span>`:pVal<.1?`<span class="badge by">trend (p &lt; 0.10)</span>`:`<span class="badge br">not significant</span>`
 
-  const pColor = pVal < 0.05 ? '#4ade80' : pVal < 0.1 ? '#fbbf24' : '#f87171'
-  const sigBadge = pVal < 0.05 ? `<span class="badge bg">p < 0.05</span>` : pVal < 0.1 ? `<span class="badge by">Trend</span>` : `<span class="badge br">n.s.</span>`
-
-  const mean1 = active[0] ? vals.find(v=>v.ds.id===active[0].id)?.v : null
-  const mean2 = active[1] ? vals.find(v=>v.ds.id===active[1].id)?.v : null
-
-  cardsEl.innerHTML = `
-    <div class="result-box">
-      <div class="rlbl">p-value (two-tailed)</div>
-      <div class="rval" style="color:${pColor}">${pFmt(pVal)}</div>
-      <div style="margin-top:9px">${sigBadge}</div>
+  out.innerHTML=`
+    <div class="rgrid">
+      <div class="rcard"><div class="rl">p-value (2-tailed)</div><div class="rv" style="color:${pc}">${pfmt(pVal)}</div><div style="margin-top:8px">${sb}</div></div>
+      <div class="rcard"><div class="rl">Effect size</div><div class="rv">${efStr.split('=')[1]?.trim().split(' ')[0]||'—'}</div><div class="rs">${efStr}</div></div>
+      <div class="rcard"><div class="rl">Test</div><div style="font-size:11px;font-weight:700;color:var(--t);line-height:1.4;margin-top:3px;font-family:var(--mono)">${test.l}</div></div>
     </div>
-    <div class="result-box">
-      <div class="rlbl">Effect size</div>
-      <div class="rval">${effectSize}</div>
-      <div style="margin-top:9px;font-size:9px;color:var(--dimmer);font-weight:700;letter-spacing:0.1em">${effectLabel}</div>
-    </div>
-    <div class="result-box">
-      <div class="rlbl">Test</div>
-      <div style="font-size:13px;font-weight:900;color:var(--text);line-height:1.3;margin-top:4px">${test.label}</div>
-    </div>`
-
-  if (outEl) outEl.innerHTML = `
-    <span style="color:var(--dimmer)">metric:</span> ${m.label}<br>
-    <span style="color:var(--dimmer)">stat:</span>   ${statStr}<br>
-    <span style="color:var(--dimmer)">p =</span>     <span style="color:${pColor};font-weight:700">${pFmt(pVal)}</span><br>
-    ${ciStr ? `<span style="color:var(--dimmer)">${ciStr}</span><br>` : ''}
-    ${active.slice(0,2).map(ds=>{
-      const v = vals.find(vv=>vv.ds.id===ds.id)?.v
-      return `<span style="color:var(--dimmer)">${ds.label}:</span> ${v?.toFixed(2)||'—'}`
-    }).join('<br>')}`
-
-  if (tblEl) tblEl.innerHTML = `
-    <table class="rtbl">
-      <thead><tr><th>Dataset</th><th>${m.label}</th><th>HR mean</th><th>HR peak</th><th>Rest</th></tr></thead>
-      <tbody>${active.map(ds=>{
-        const vv = vals.find(v=>v.ds.id===ds.id)?.v
-        const hrm = ds.metrics.hr?.reduce((s,p,_,a)=>s+p.v/a.length,0)
-        return `<tr>
-          <td><div style="display:flex;align-items:center;gap:6px"><div style="width:5px;height:5px;border-radius:50%;background:${ds.color}"></div>${ds.label}</div></td>
-          <td style="color:var(--text)">${vv?.toFixed(2)||'—'}</td>
-          <td>${hrm?.toFixed(1)||'—'}</td>
-          <td>${ds.peak}</td>
-          <td>${ds.rest}</td>
-        </tr>`
-      }).join('')}</tbody>
-    </table>`
-
-  if (interpEl) {
-    interpEl.style.display = 'block'
-    const dir = pVal < 0.05
-      ? `Statistically significant difference detected (p = ${pFmt(pVal)}). ${effectLabel}. ${ciStr}`
-      : pVal < 0.1
-        ? `Trend toward significance (p = ${pFmt(pVal)}). Effect size: ${effectLabel}. Consider increasing n.`
-        : `No statistically significant difference (p = ${pFmt(pVal)}). ${effectLabel}. Small sample — underpowered.`
-    interpEl.innerHTML = `<strong style="color:var(--text)">Interpretation:</strong> ${dir}`
-  }
+    <div class="cout">
+<span style="color:var(--dd)">metric  </span>${m.l}
+<span style="color:var(--dd)">test    </span>${test.l}
+<span style="color:var(--dd)">stat    </span>${statStr}
+<span style="color:var(--dd)">p =     </span><span style="color:${pc};font-weight:700">${pfmt(pVal)}</span>
+${ciStr?`<span style="color:var(--dd)">ci      </span>${ciStr}`:''}</div>
+    ${interp?`<div class="csm" style="font-size:10px;color:var(--d);line-height:1.7"><strong style="color:var(--t)">Interpretation:</strong> ${interp}</div>`:''}
+    <div><div class="slbl">Data</div>
+    <table class="tbl"><thead><tr><th>Dataset</th><th>${m.l}</th><th>HR mean</th><th>HR peak</th><th>n</th></tr></thead>
+    <tbody>${sel.map(d=>{const vv=vals.find(x=>x.d.id===d.id)?.v; return`<tr><td><div style="display:flex;align-items:center;gap:6px">${dot(d.color)}${d.label}</div></td><td style="color:var(--t)">${vv?.toFixed(3)||'—'}</td><td>${avg(d.metrics.hr?.map(p=>p.v))?.toFixed(1)||'—'}</td><td>${d.peak}</td><td>${d.metrics.hr?.length||'—'}</td></tr>`}).join('')}</tbody></table></div>`
 }
 
-// ═══════════════════════════════════════════
-// METRICS (derived params)
-// ═══════════════════════════════════════════
+function efl(v,t){return t==='r'?(v>.5?'large':v>.3?'medium':'small'):(Math.abs(v)>.8?'large':Math.abs(v)>.5?'medium':'small')}
+function interpStr(p,ef,t){const s=p<.05?'Statistically significant':p<.1?'Trend toward significance':'No significant'; return`${s} (p = ${pfmt(p)}). Effect: ${ef.toFixed(3)} (${efl(ef,t)}).`}
 
-function metricsPanel() {
-  if (!datasets.length) return noDataMsg(icPulse)
-
-  return `
-    ${ph(icPulse, 'Derived Metrics')}
-    <div class="pb">
-      <div id="met-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
-    </div>`
+// ── METRICS ──────────────────────────────────────────────
+function rMetrics(el){
+  if(!datasets.length){el.innerHTML=empty('Load data first.'); return}
+  el.innerHTML='<div class="m-sect" id="mi"></div>'
+  const inner=el.querySelector('#mi')
+  datasets.forEach(ds=>{
+    const hr=ds.metrics.hr?.map(p=>p.v)||[]; if(!hr.length)return
+    const mn=avg(hr), sd=Math.sqrt(hr.reduce((s,v)=>s+(v-mn)**2,0)/hr.length)
+    const rp=ds.metrics.hr?.slice(-Math.floor(ds.metrics.hr.length*.3))||[]
+    const hrr1=rp.length?(rp[0].v-(rp.find(p=>p.t>=(rp[0]?.t||0)+60)?.v||rp[0].v)):0
+    const rmssd=hr.length>1?Math.sqrt(hr.slice(1).reduce((s,v,i)=>s+(v-hr[i])**2,0)/(hr.length-1)):null
+    const rows=[['HR mean',`${mn.toFixed(1)} bpm`],['HR peak',`${Math.max(...hr)} bpm`],['HR min',`${Math.min(...hr).toFixed(0)} bpm`],['HR SD',`${sd.toFixed(2)} bpm`],['HR reserve',`${Math.max(...hr)-ds.rest} bpm`],['HRR 1min',hrr1>0?`${hrr1.toFixed(1)} bpm`:'—'],['RMSSD approx',rmssd?`${rmssd.toFixed(1)}`:'—'],['VO₂ Max',ds.metrics.vo2?.[0]?`${ds.metrics.vo2[0].v.toFixed(1)} mL/kg/min`:'—'],['Duration',`${Math.round(ds.totalDur/60)} min`]]
+    const c=document.createElement('div'); c.className='card'
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:11px"><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${ds.color};box-shadow:0 0 7px ${ds.color}"></i><span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t)">${ds.label}</span></div><table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px">${rows.map(([l,v])=>`<tr><td style="padding:4px 0;color:var(--dd);width:55%">${l}</td><td style="padding:4px 0;color:var(--t);text-align:right;font-weight:700">${v}</td></tr>`).join('')}</table>`
+    inner.appendChild(c)
+  })
 }
 
-function initMetrics() {
-  const el = document.getElementById('met-cards')
-  if (!el) return
-  el.innerHTML = datasets.map(ds => {
-    const hr = ds.metrics.hr?.map(p=>p.v)||[]
-    if (!hr.length) return ''
-    const mean = hr.reduce((a,b)=>a+b,0)/hr.length
-    const sd = Math.sqrt(hr.reduce((s,v)=>s+(v-mean)**2,0)/hr.length)
-    const peak = Math.max(...hr), rest = ds.rest
-
-    // HR recovery rate (drop from peak in first 60s of last 30% of session)
-    const recPts = ds.metrics.hr?.slice(-Math.floor(ds.metrics.hr.length*0.3))||[]
-    const recStart = recPts[0]?.v||peak
-    const rec60 = recPts.find(p => p.t >= (recPts[0]?.t||0) + 60)
-    const hrr1 = recStart - (rec60?.v||recStart)
-
-    // RMSSD approx from HR (rough)
-    const rmssd = hr.length > 1
-      ? Math.sqrt(hr.slice(1).reduce((s,v,i)=>s+(v-hr[i])**2,0)/(hr.length-1))
-      : null
-
-    // RPP approx (needs BP — placeholder)
-    const vo2 = ds.metrics.vo2?.[0]?.v
-
-    const rows = [
-      ['HR mean',     `${mean.toFixed(1)} bpm`],
-      ['HR peak',     `${peak} bpm`],
-      ['HR SD',       `${sd.toFixed(1)} bpm`],
-      ['HR reserve',  `${peak - rest} bpm`],
-      ['HRR (1 min)', hrr1 > 0 ? `${hrr1.toFixed(1)} bpm` : '—'],
-      ['RMSSD (approx)', rmssd ? `${rmssd.toFixed(1)}` : '—'],
-      ['VO₂ Max',    vo2 ? `${vo2.toFixed(1)} mL/kg/min` : '—'],
-    ]
-
-    return `
-      <div class="chartbox">
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px">
-          <div style="width:8px;height:8px;border-radius:50%;background:${ds.color};box-shadow:0 0 8px ${ds.color}"></div>
-          <span style="font-size:11px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:var(--text)">${ds.label}</span>
+// ── UPLOAD ───────────────────────────────────────────────
+function rUpload(el){
+  el.innerHTML=`
+    <div class="u-sect">
+      <div style="max-width:640px;margin:0 auto">
+        <div class="slbl" style="margin-bottom:11px">Apple Watch Health Export</div>
+        <div class="uzone" id="uz" onclick="document.getElementById('fi').click()">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" style="margin:0 auto 9px;display:block;color:var(--dd)"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--d);margin-bottom:3px">Drop export.xml here</div>
+          <div style="font-size:8px;color:var(--dd);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono)">click to browse · multiple files</div>
         </div>
-        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px">
-          ${rows.map(([l,v])=>`
-            <tr>
-              <td style="padding:5px 0;color:var(--dimmer);width:55%">${l}</td>
-              <td style="padding:5px 0;color:var(--text);text-align:right;font-weight:700">${v}</td>
-            </tr>`).join('')}
-        </table>
-      </div>`
-  }).join('')
-}
-
-// ═══════════════════════════════════════════
-// ABOUT
-// ═══════════════════════════════════════════
-
-function aboutPanel() {
-  return `${ph(icInfo, 'About')}<div class="pb" style="min-height:300px"></div>`
-}
-
-// ─── helpers ───────────────────────────────
-
-function noDataMsg(iconFn, msg = 'Load data first via the Upload panel') {
-  const idx = TILES_CFG.findIndex(t=>t.id==='upload')
-  return `${ph(iconFn,'—')}
-    <div class="pb" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:12px">
-      <div style="color:var(--dimmer);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase">${msg}</div>
-      <button onclick="selectTile('upload');selectTile('upload')" style="padding:8px 18px;border-radius:9px;border:1px solid var(--border2);background:rgba(255,255,255,0.03);color:var(--dim);font-size:9px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;font-family:var(--font)">← Upload</button>
+        <input type="file" id="fi" accept=".xml" multiple style="display:none">
+        <div style="margin-top:14px">
+          <div class="slbl">Demo datasets</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+            <button onclick="loadDemo(1)" class="tb-btn" style="height:34px;font-size:8px;justify-content:center">Single workout</button>
+            <button onclick="loadDemo(2)" class="tb-btn" style="height:34px;font-size:8px;justify-content:center">4 participants</button>
+          </div>
+        </div>
+        <div style="margin-top:18px"><div class="slbl">Loaded datasets</div><div id="dsl"></div></div>
+        <div class="csm" style="margin-top:14px;font-size:9px;color:var(--dd);line-height:1.85;font-family:var(--mono)">
+          <span style="color:var(--d);font-weight:700">HOW TO EXPORT</span><br>
+          Health app → profile → Export All Health Data → export.zip → unzip → upload export.xml
+        </div>
+      </div>
     </div>`
+  setTimeout(initUpload,20)
 }
 
-// ─── theme ─────────────────────────────────
+function initUpload(){
+  const uz=document.getElementById('uz'),fi=document.getElementById('fi'); if(!uz||!fi)return
+  uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag')})
+  uz.addEventListener('dragleave',()=>uz.classList.remove('drag'))
+  uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');Array.from(e.dataTransfer.files).forEach(pf)})
+  fi.addEventListener('change',e=>Array.from(e.target.files).forEach(pf))
+  refreshDSL()
+}
+function pf(file){
+  const r=new FileReader(); r.onload=e=>{
+    const ds=parseXML(e.target.result,file.name.replace('export.xml','').replace('.xml','')||`DS${datasets.length+1}`)
+    if(!ds){alert('No HR records found.');return}
+    datasets.push(ds); activeDS=datasets.map(d=>d.id); sSelDS=[...activeDS]; refreshDSL(); updateTB()
+  }; r.readAsText(file)
+}
+function refreshDSL(){
+  const el=document.getElementById('dsl'); if(!el)return
+  if(!datasets.length){el.innerHTML=`<div style="padding:18px;text-align:center;color:var(--dd);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">No datasets loaded</div>`;return}
+  el.innerHTML=datasets.map(d=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;background:var(--s2);border:1px solid var(--b);margin-bottom:4px">
+    <i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${d.color};box-shadow:0 0 6px ${d.color};flex-shrink:0"></i>
+    <div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t)">${d.label}</div>
+    <div style="font-size:8px;color:var(--dd);font-family:var(--mono);margin-top:2px">${d.metrics.hr?.length||0} HR · ${Object.keys(d.metrics).length} metrics · ${Math.round(d.totalDur/60)}min · rest ${d.rest} · peak ${d.peak}</div></div>
+    <button onclick="rmDS(${d.id})" style="width:19px;height:19px;border-radius:4px;border:none;background:rgba(248,113,113,.08);color:#f87171;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
+  </div>`).join('')
+}
+function rmDS(id){datasets=datasets.filter(d=>d.id!==id);activeDS=activeDS.filter(x=>x!==id);sSelDS=sSelDS.filter(x=>x!==id);refreshDSL();updateTB()}
 
-function toggleTheme() {
-  theme = theme === 'dark' ? 'light' : 'dark'
-  document.body.classList.toggle('light', theme === 'light')
+// ── demo ─────────────────────────────────────────────────
+function loadDemo(n){
+  datasets=[];activeDS=[];sSelDS=[]
+  if(n===1)datasets.push(mkDemo(0,1337,'Workout A'))
+  else{datasets.push(mkDemo(0,1337,'P1'));datasets.push(mkDemo(1,2674,'P2'));datasets.push(mkDemo(2,5521,'P3'));datasets.push(mkDemo(3,8832,'P4'))}
+  activeDS=datasets.map(d=>d.id); sSelDS=[...activeDS]; updateTB()
+  nav(section==='upload'?'graph':section)
 }
 
-// ─── boot ──────────────────────────────────
+// ── glass toggle ─────────────────────────────────────────
+function mkTog(id,labels,ai,cb){
+  const pw=50+Math.max(...labels.map(l=>l.length))*4, bw=pw+2, tw=bw*labels.length+8
+  return `<div class="gtog" id="gt-${id}" style="width:${tw}px"><div class="gpill" id="gp-${id}" style="width:${pw}px;transform:translateX(${ai*(pw+1)}px)"></div>${labels.map((l,i)=>`<button class="gbtn ${i===ai?'on':''}" style="width:${bw}px" onclick="gtc('${id}',${i},'${cb}')">${l}</button>`).join('')}</div>`
+}
+function gtc(id,idx,cb){
+  const w=document.getElementById(`gt-${id}`),p=document.getElementById(`gp-${id}`); if(!w||!p)return
+  const pw=p.offsetWidth; w.querySelectorAll('.gbtn').forEach((b,i)=>b.classList.toggle('on',i===idx)); p.style.transform=`translateX(${idx*(pw+1)}px)`
+  if(window[cb])window[cb](idx)
+}
 
-renderTiles()
+// ── neon / theme ─────────────────────────────────────────
+function toggleNeon(){neonMode=!neonMode; document.getElementById('neon-btn')?.classList.toggle('on',neonMode); killCharts(); if(section==='graph')buildChart()}
+function toggleTheme(){theme=theme==='dark'?'light':'dark'; document.body.classList.toggle('light',theme==='light'); killCharts(); render()}
+
+// ── export ───────────────────────────────────────────────
+function exportPNG(){const c=document.getElementById('gc'); if(!c)return; const a=document.createElement('a'); a.download=`cv-${gMetric}-${Date.now()}.png`; a.href=c.toDataURL('image/png'); a.click()}
+function exportCSV(){
+  if(!datasets.length)return
+  const m=MCFG[gMetric], active=datasets.filter(d=>activeDS.includes(d.id)&&d.metrics[gMetric]); if(!active.length)return
+  let csv=`time_s,${active.map(d=>d.label).join(',')}\n`
+  const times=[...new Set(active.flatMap(d=>d.metrics[gMetric].map(p=>p.t)))].sort((a,b)=>a-b)
+  times.forEach(t=>{csv+=`${t},${active.map(d=>{const pt=d.metrics[gMetric].find(p=>Math.abs(p.t-t)<10); return pt?pt.v.toFixed(2):''}).join(',')}\n`})
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`cv-${gMetric}.csv`; a.click()
+}
+
+// ── empty ────────────────────────────────────────────────
+function empty(msg,acts=''){return`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:300px;gap:9px;padding:40px;text-align:center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color:var(--ddd)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--dd)">${msg}</div>${acts}</div>`}
+
+// ── stats functions ──────────────────────────────────────
+function wilcox(x,y){const d=x.map((xi,i)=>xi-y[i]).filter(d=>Math.abs(d)>1e-9),n=d.length; if(n<2)return{p:.99,r:0,Wp:0,Wm:0,n:0}; const it=d.map(v=>({v,abs:Math.abs(v),sgn:Math.sign(v),rank:0})).sort((a,b)=>a.abs-b.abs); let i=0; while(i<n){let j=i; while(j<n&&it[j].abs===it[i].abs)j++; const r=(i+j+1)/2; for(let k=i;k<j;k++)it[k].rank=r; i=j} const Wp=it.filter(r=>r.sgn>0).reduce((s,r)=>s+r.rank,0),Wm=it.filter(r=>r.sgn<0).reduce((s,r)=>s+r.rank,0),W=Math.min(Wp,Wm),p=n<=20?exWP(W,n):normAP(W,n),mu=n*(n+1)/4,sig=Math.sqrt(n*(n+1)*(2*n+1)/24),Z=(W-mu)/sig; return{W,Wp,Wm,n,p,Z,r:Math.abs(Z)/Math.sqrt(n)}}
+function exWP(W,n){const tot=1<<n; let c=0; for(let m=0;m<tot;m++){let t=0; for(let i=0;i<n;i++)if((m>>i)&1)t+=(i+1); if(Math.min(t,n*(n+1)/2-t)<=W)c++} return c/tot}
+function normAP(W,n){const mu=n*(n+1)/4,sig=Math.sqrt(n*(n+1)*(2*n+1)/24),z=Math.abs((W-mu)/sig); return 2*(1-nCDF(z))}
+function nCDF(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),p=d*t*(.3193815+t*(-.3565638+t*(1.7814779+t*(-1.821256+t*1.3302744)))); return z>0?1-p:p}
+function signT(x,y){const n=x.length,k=x.filter((xi,i)=>xi>y[i]).length; let p=0,lo=Math.min(k,n-k); for(let i=0;i<=lo;i++)p+=binom(n,i)*Math.pow(.5,n); return{k,n,p:Math.min(1,p*2)}}
+function pttest(x,y){const n=x.length,d=x.map((xi,i)=>xi-y[i]),mean=d.reduce((a,b)=>a+b,0)/n,v=d.reduce((s,di)=>s+(di-mean)**2,0)/(n-1),se=Math.sqrt(v/n),t=mean/se,p=2*(1-tCDF(Math.abs(t),n-1)); return{t,p,d:mean/Math.sqrt(v),mean,se,n}}
+function mwu(x,y){const nx=x.length,ny=y.length; let U1=0; x.forEach(xi=>y.forEach(yj=>{if(xi>yj)U1++;else if(xi===yj)U1+=.5})); const U2=nx*ny-U1,U=Math.min(U1,U2),mu=nx*ny/2,sig=Math.sqrt(nx*ny*(nx+ny+1)/12),Z=(U-mu)/sig,p=2*(1-nCDF(Math.abs(Z))); return{U,U1,U2,nx,ny,Z,p,r:Math.abs(Z)/Math.sqrt(nx+ny)}}
+function pearson(x,y){const n=x.length,mx=avg(x),my=avg(y),num=x.reduce((s,xi,i)=>s+(xi-mx)*(y[i]-my),0),dx=Math.sqrt(x.reduce((s,xi)=>s+(xi-mx)**2,0)),dy=Math.sqrt(y.reduce((s,yi)=>s+(yi-my)**2,0)),r=num/(dx*dy),t=r*Math.sqrt(n-2)/Math.sqrt(1-r*r),p=2*(1-tCDF(Math.abs(t),n-2)); return{r,t,p,n}}
+function spearman(x,y){const rank=arr=>{const s=[...arr].map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v),rs=new Array(arr.length); let i=0; while(i<s.length){let j=i; while(j<s.length&&s[j].v===s[i].v)j++; const a=(i+j+1)/2; for(let k=i;k<j;k++)rs[s[k].i]=a; i=j} return rs}; return pearson(rank(x),rank(y))}
+function kw(groups){const all=[],N=groups.reduce((s,g)=>s+g.length,0); groups.forEach((g,i)=>g.forEach(v=>all.push({v,g:i}))); all.sort((a,b)=>a.v-b.v); let i=0; while(i<all.length){let j=i; while(j<all.length&&all[j].v===all[i].v)j++; const r=(i+j+1)/2; for(let k=i;k<j;k++)all[k].r=r; i=j} const Ri=groups.map((_,gi)=>all.filter(x=>x.g===gi).reduce((s,x)=>s+x.r,0)); const H=(12/(N*(N+1)))*Ri.reduce((s,R,i)=>s+R*R/groups[i].length,0)-3*(N+1),df=groups.length-1,p=1-chi2CDF(H,df),eta2=(H-df+1)/(N-df); return{H,df,p,eta2:Math.max(0,eta2)}}
+function chi2CDF(x,k){if(x<=0)return 0; return rgP(k/2,x/2)}
+function rgP(a,x){if(x<=0)return 0; if(x<a+1){let ap=a,del=1/a,sum=del; for(let i=0;i<200;i++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-7)break} return sum*Math.exp(-x+a*Math.log(x)-lgamma(a))} else{let b=x+1-a,c=1e30,dd=1/b,h=dd; for(let i=1;i<=200;i++){const an=-i*(i-a),b2=b+2; dd=an*dd+b2; c=b2+an/c; dd=1/dd; h*=dd*c; b+=2; if(Math.abs(dd*c-1)<1e-7)break} return 1-h*Math.exp(-x+a*Math.log(x)-lgamma(a))}}
+function tCDF(t,df){const x=df/(df+t*t); let c=1,dd=1-(df+1)*x/(df/2+1),sum=1; dd=dd===0?1e-30:1/dd; c=dd; for(let m=1;m<=100;m++){const m2=2*m,num=m*(.5-m)*x/((df/2+m2-1)*(df/2+m2)); dd=1+num*dd; dd=dd===0?1e-30:dd; c=1+num/c; c=c===0?1e-30:c; dd=1/dd; let delta=c*dd; sum*=delta; num=-(df/2+m)*(df/2+.5+m)*x/((df/2+m2)*(df/2+m2+1)); dd=1+num*dd; c=1+num/c; c=c===0?1e-30:c; dd=1/dd; delta=c*dd; sum*=delta; if(Math.abs(delta-1)<1e-8)break} const pp=.5*(df/(df+t*t))**(df/2)*(1-x)**.5*sum/(df*Math.exp(lgamma(df/2+.5)-lgamma(.5)-lgamma(df/2))); return t>0?1-pp:pp}
+function lgamma(z){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5]; let x=z,y=z,tmp=x+5.5; tmp-=(x+.5)*Math.log(tmp); let ser=1.000000000190015; for(let i=0;i<6;i++)ser+=c[i]/++y; return -tmp+Math.log(2.5066282746310005*ser/x)}
+function bsCI(x,y,n=800){const d=[]; for(let i=0;i<n;i++){const bx=[],by=[]; for(let j=0;j<x.length;j++){const idx=Math.floor(Math.random()*x.length); bx.push(x[idx]); by.push(y[idx])} d.push(avg(bx)-avg(by))} d.sort((a,b)=>a-b); return{lo:d[Math.floor(n*.025)],hi:d[Math.floor(n*.975)]}}
+function binom(n,k){if(k<0||k>n)return 0; if(k===0||k===n)return 1; let r=1; for(let i=0;i<Math.min(k,n-k);i++)r=r*(n-i)/(i+1); return r}
+function pfmt(p){return p<.001?'< 0.001':p.toFixed(4)}
+
+// ── boot ─────────────────────────────────────────────────
+loadDemo(2)
 </script>
 </body>
 </html>
