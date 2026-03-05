@@ -9,7 +9,7 @@ import {
   custNotched, custHorizontal, custTrendline, custShowCI,
   custLegendPos, custAxisTitle,
 } from './state.js'
-import { avg } from './stats.js'
+import { avg } from './stats/index.js'
 
 // ── helpers ──────────────────────────────────────────────────
 

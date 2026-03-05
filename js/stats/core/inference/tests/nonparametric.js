@@ -105,7 +105,7 @@ export function kruskalWallis(groups) {
   const p  = 1 - chi2CDF(H, df)
   const eta2 = Math.max(0, (H - df + 1) / (N - df))
 
-  return { H, df, p, eta2, Ri, N }
+  return { H, df, p, eta2: Math.max(0, eta2), N }
 }
 
 // ── Two-sample Kolmogorov–Smirnov ────────────────────────────

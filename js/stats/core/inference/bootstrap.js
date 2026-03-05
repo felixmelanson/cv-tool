@@ -2,7 +2,7 @@
 // no distributional assumptions; only requirement is exchangeability
 // B=2000 is enough for 95% CI; B=5000 for stable p-values
 
-import { avg } from '../core/utils.js'
+import { avg } from '../utils.js'
 
 // ── Bootstrap 95% CI for mean difference ─────────────────────
 // percentile method — interpretable as "where the true Δ likely lives"
