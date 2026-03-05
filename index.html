@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>cv-tool</title>
+  <title>cv-tool — cardiovascular analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
 
-  <!-- Chart.js + plugins (UMD, must load before ES modules) -->
+  <!-- Chart.js + plugins (UMD globals, must load before ES modules) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
@@ -15,20 +18,32 @@
 
   <!-- top bar -->
   <div class="tb">
-    <div class="tb-brand"><span class="tb-logo">cv</span></div>
-    <div class="tb-status" id="tbst">no data — load demo or upload xml</div>
+    <div class="tb-brand">
+      <span class="tb-logo">cv</span>
+    </div>
+
+    <div class="tb-status" id="tbst">
+      <span style="color:var(--t3)">no data</span>
+    </div>
+
     <div class="tb-acts">
       <div id="neon-btn" class="tb-btn" onclick="toggleNeon()">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="5"/>
           <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
         </svg>
         Neon
       </div>
+
+      <div class="tb-sep"></div>
+
       <div class="tb-btn" onclick="exportPNG()">PNG</div>
       <div class="tb-btn" onclick="exportCSV()">CSV</div>
-      <div class="tb-ico" onclick="toggleTheme()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+      <div class="tb-sep"></div>
+
+      <div class="tb-ico" onclick="toggleTheme()" title="Toggle theme">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </div>
@@ -39,16 +54,16 @@
   <div class="layout">
 
     <!-- left nav rail -->
-    <div class="rail">
-      <button class="rb on" id="rb-graph" onclick="nav('graph')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <nav class="rail">
+      <button class="rb on" id="rb-graph" onclick="nav('graph')" title="Graph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         <span class="rtip">Graph</span>
       </button>
 
-      <button class="rb" id="rb-compare" onclick="nav('compare')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <button class="rb" id="rb-compare" onclick="nav('compare')" title="Compare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="20" x2="18" y2="10"/>
           <line x1="12" y1="20" x2="12" y2="4"/>
           <line x1="6"  y1="20" x2="6"  y2="14"/>
@@ -56,15 +71,15 @@
         <span class="rtip">Compare</span>
       </button>
 
-      <button class="rb" id="rb-stats" onclick="nav('stats')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <button class="rb" id="rb-stats" onclick="nav('stats')" title="Stats sandbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 7V4H6l6 8-6 8h12v-3"/>
         </svg>
         <span class="rtip">Stats</span>
       </button>
 
-      <button class="rb" id="rb-metrics" onclick="nav('metrics')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <button class="rb" id="rb-metrics" onclick="nav('metrics')" title="Metrics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
         </svg>
         <span class="rtip">Metrics</span>
@@ -72,23 +87,21 @@
 
       <div class="rsep"></div>
 
-      <button class="rb" id="rb-upload" onclick="nav('upload')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <button class="rb" id="rb-upload" onclick="nav('upload')" title="Upload data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         <span class="rtip">Upload</span>
       </button>
-    </div>
+    </nav>
 
-    <!-- main content area (filled by JS) -->
+    <!-- main content (filled by JS) -->
     <div class="main" id="main"></div>
 
   </div>
 
-  <!-- ES module entry point -->
   <script type="module" src="js/main.js"></script>
-
 </body>
 </html>

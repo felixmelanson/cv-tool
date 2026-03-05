@@ -1,37 +1,41 @@
-import { datasets, activeDS, sSelDS, neonMode, theme, section, set } from './state.js'
+// main.js — entry point
+// wires window globals that inline onclick handlers need
+
+import { datasets, activeDS, sSelDS, neonMode, theme, section, gMetric, set } from './state.js'
 import { makeDemo } from './demo.js'
-import { parseXML } from './parser.js'
+import { parseXML  } from './parser.js'
 import {
   nav, render, updateTopbar, killCharts,
   onGStyle, onGSmooth, setGMetric, toggleDS,
   setCmpMetric,
   toggleStatDS, setStatMetric, setStatTest, runStats,
-  refreshDatasetList,
+  refreshDatasetList, refreshLivePanel,
   mkToggle, toggleClick,
 } from './ui.js'
+import { avg } from './stats/index.js'
 import { buildChart } from './charts.js'
 
-// ── expose everything inline HTML onclick needs ──────────────
-window.nav          = nav
-window.onGStyle     = onGStyle
-window.onGSmooth    = onGSmooth
-window.setGMetric   = setGMetric
-window.toggleDS     = toggleDS
-window.setCmpMetric = setCmpMetric
-window.toggleStatDS = toggleStatDS
+// ── expose to inline onclick handlers ────────────────────────
+window.nav           = nav
+window.onGStyle      = onGStyle
+window.onGSmooth     = onGSmooth
+window.setGMetric    = setGMetric
+window.toggleDS      = toggleDS
+window.setCmpMetric  = setCmpMetric
+window.toggleStatDS  = toggleStatDS
 window.setStatMetric = setStatMetric
-window.setStatTest  = setStatTest
-window.runStats     = runStats
-window.toggleClick  = toggleClick
-window.loadDemoData = loadDemoData
+window.setStatTest   = setStatTest
+window.runStats      = runStats
+window.toggleClick   = toggleClick
+window.loadDemoData  = loadDemoData
 window.removeDataset = removeDataset
-window.exportPNG    = exportPNG
-window.exportCSV    = exportCSV
-window.toggleNeon   = toggleNeon
-window.toggleTheme  = toggleTheme
-window.handleFile   = handleFile
+window.exportPNG     = exportPNG
+window.exportCSV     = exportCSV
+window.toggleNeon    = toggleNeon
+window.toggleTheme   = toggleTheme
+window.handleFile    = handleFile
 
-// ── load demo ────────────────────────────────────────────────
+// ── demo ─────────────────────────────────────────────────────
 function loadDemoData(n) {
   set('datasets', [])
   set('activeDS', [])
@@ -54,11 +58,11 @@ function loadDemoData(n) {
   nav(section === 'upload' ? 'graph' : section)
 }
 
-// ── file upload handler ───────────────────────────────────────
+// ── file upload ───────────────────────────────────────────────
 function handleFile(file) {
   const reader = new FileReader()
   reader.onload = e => {
-    const label = file.name.replace('export.xml', '').replace('.xml', '') || `DS${datasets.length + 1}`
+    const label = file.name.replace('export.xml','').replace('.xml','') || `DS${datasets.length+1}`
     const ds    = parseXML(e.target.result, label, datasets.length)
     if (!ds) { alert('No heart rate records found in this file.'); return }
 
@@ -72,7 +76,7 @@ function handleFile(file) {
   reader.readAsText(file)
 }
 
-// ── remove dataset ────────────────────────────────────────────
+// ── remove ────────────────────────────────────────────────────
 function removeDataset(id) {
   set('datasets', datasets.filter(d => d.id !== id))
   set('activeDS', activeDS.filter(x => x !== id))
@@ -81,7 +85,7 @@ function removeDataset(id) {
   updateTopbar()
 }
 
-// ── neon mode ─────────────────────────────────────────────────
+// ── neon ──────────────────────────────────────────────────────
 function toggleNeon() {
   set('neonMode', !neonMode)
   document.getElementById('neon-btn')?.classList.toggle('on', !neonMode)
@@ -98,9 +102,7 @@ function toggleTheme() {
   render()
 }
 
-// ── export PNG ───────────────────────────────────────────────
-// grabs the raw canvas bitmap — Chart.js renders to it directly,
-// so toDataURL gives us exactly what's on screen
+// ── export PNG ────────────────────────────────────────────────
 function exportPNG() {
   const canvas = document.getElementById('gc')
   if (!canvas) return
@@ -110,29 +112,25 @@ function exportPNG() {
   a.click()
 }
 
-// ── export CSV ───────────────────────────────────────────────
-// time-aligns all active datasets with a 10s tolerance window,
-// blank cells where a dataset has no reading near that timestamp
 function exportCSV() {
   if (!datasets.length) return
-  // gMetric and MCFG are already imported at the top of this file
   const active = datasets.filter(d => activeDS.includes(d.id) && d.metrics[gMetric])
   if (!active.length) return
 
   let csv = `time_s,${active.map(d => d.label).join(',')}\n`
-  const times = [...new Set(active.flatMap(d => d.metrics[gMetric].map(p => p.t)))].sort((a, b) => a - b)
+  const times = [...new Set(active.flatMap(d => d.metrics[gMetric].map(p => p.t)))].sort((a,b) => a-b)
 
   times.forEach(t => {
     const row = [t, ...active.map(d => {
-      const pt = d.metrics[gMetric].find(p => Math.abs(p.t - t) < 10)
+      const pt = d.metrics[gMetric].find(p => Math.abs(p.t-t) < 10)
       return pt ? pt.v.toFixed(2) : ''
     })]
     csv += row.join(',') + '\n'
   })
 
   const a = document.createElement('a')
-  a.href     = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-  a.download = `cv-tool-export.csv`
+  a.href     = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
+  a.download = 'cv-tool-export.csv'
   a.click()
   URL.revokeObjectURL(a.href)
 }
