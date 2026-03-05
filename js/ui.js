@@ -155,26 +155,60 @@ export function setCmpMetric(i) {
   killCharts(); buildCompare()
 }
 
-// ── STATS ────────────────────────────────────────────────────
+// ── STATS (new ui patch add) ────────────────────────────────────────────────────
+// replaces: SMS, STS, rStats, toggleStatDS, setStatMetric, setStatTest, runStats
+
+import { avg, std, pfmt, efl, efPct, interpStr, percentile,
+  wilcox, signTest, pairedT, mannWhitney, pearson, spearman,
+  kruskalWallis, ksTest, cvmTest, linTrend, permutationTest,
+  kendallTau, bootstrapCI } from './stats/index.js'
+
+// ── metric extractors ────────────────────────────────────────
 export const SMS = [
-  { l: 'HR mean',      g: d => avg(d.metrics.hr?.map(p => p.v)) },
-  { l: 'HR peak',      g: d => Math.max(...(d.metrics.hr?.map(p => p.v) || [0])) },
-  { l: 'HR final 10%', g: d => { const v = (d.metrics.hr || []).slice(-Math.ceil((d.metrics.hr || []).length * 0.1)).map(p => p.v); return avg(v) } },
-  { l: 'HR SD',        g: d => { const v = d.metrics.hr?.map(p => p.v) || [], m = avg(v); return Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length) } },
-  { l: 'HRV mean',     g: d => avg(d.metrics.hrv?.map(p => p.v)) },
-  { l: 'SpO₂ mean',   g: d => avg(d.metrics.spo2?.map(p => p.v)) },
+  { l: 'HR mean',          g: d => avg(d.metrics.hr?.map(p => p.v))                                                    },
+  { l: 'HR peak',          g: d => d.peak                                                                               },
+  { l: 'HR min',           g: d => d.rest                                                                               },
+  { l: 'HR SD',            g: d => { const v = d.metrics.hr?.map(p => p.v)||[]; const m=avg(v); return Math.sqrt(v.reduce((s,x)=>s+(x-m)**2,0)/v.length) } },
+  { l: 'HR final 30%',     g: d => { const v = d.metrics.hr||[]; return avg(v.slice(-Math.ceil(v.length*.3)).map(p=>p.v)) } },
+  { l: 'HR reserve',       g: d => d.peak - d.rest                                                                     },
+  { l: 'HRV mean',         g: d => avg(d.metrics.hrv?.map(p => p.v))                                                   },
+  { l: 'SpO₂ mean',       g: d => avg(d.metrics.spo2?.map(p => p.v))                                                  },
+  { l: 'Energy total',     g: d => { const e = d.metrics.energy; return e?.length ? e[e.length-1].v : null }            },
 ]
 
+// ── test registry ────────────────────────────────────────────
 export const STS = [
-  { l: 'Wilcoxon signed-rank', paired: true,  corr: false },
-  { l: 'Sign test',            paired: true,  corr: false },
-  { l: 'Paired t-test',        paired: true,  corr: false },
-  { l: 'Mann–Whitney U',       paired: false, corr: false },
-  { l: 'Pearson r',            paired: false, corr: true  },
-  { l: 'Spearman ρ',           paired: false, corr: true  },
-  { l: 'Kruskal–Wallis H',     paired: false, corr: false, multi: true },
+  // paired (within-subject)
+  { l: 'Wilcoxon signed-rank', paired: true,  key: 'wilcox',
+    note: 'Paired, nonparametric. No normality assumed. Exact p for n ≤ 20.' },
+  { l: 'Sign test',            paired: true,  key: 'sign',
+    note: 'Paired, nonparametric. Tests direction only — most conservative.' },
+  { l: 'Paired t-test',        paired: true,  key: 'pairedT',
+    note: 'Paired, parametric. Assumes differences are approximately normal.' },
+  { l: 'Permutation test',     paired: true,  key: 'perm',
+    note: 'Paired, assumption-free. Randomly flips difference signs (B=5000).' },
+  // two independent samples
+  { l: 'Mann–Whitney U',       paired: false, key: 'mw',
+    note: 'Independent samples. Tests P(X > Y) = 0.5. No normality assumed.' },
+  { l: 'KS test',              paired: false, key: 'ks',
+    note: 'Two-sample. Detects any shape difference (location, scale, skew).' },
+  { l: 'Cramér–von Mises',     paired: false, key: 'cvm',
+    note: 'Two-sample. Integrates ECDF differences — more sensitive than KS in tails.' },
+  // correlation
+  { l: 'Pearson r',            paired: false, corr: true, key: 'pearson',
+    note: 'Linear association on raw time-aligned values. Sensitive to outliers.' },
+  { l: 'Spearman ρ',           paired: false, corr: true, key: 'spearman',
+    note: 'Monotonic association on ranks. Robust to outliers and non-linearity.' },
+  { l: 'Kendall τ',            paired: false, corr: true, key: 'kendall',
+    note: 'Rank correlation. More conservative than Spearman; preferred for small n.' },
+  // multi-group + trend
+  { l: 'Kruskal–Wallis H',     multi: true,  key: 'kw',
+    note: 'k-sample nonparametric ANOVA. Reports η² effect size.' },
+  { l: 'Linear trend',         single: true, key: 'trend',
+    note: 'OLS slope on a single time series. Tests whether slope ≠ 0.' },
 ]
 
+// ── render ───────────────────────────────────────────────────
 function rStats(el) {
   if (datasets.length < 2) { el.innerHTML = emptyState('Load 2+ datasets to run statistical tests.'); return }
 
@@ -184,15 +218,30 @@ function rStats(el) {
     </div>`).join('')
 
   const mRows = SMS.map((m, i) => `
-    <div class="ritem ${sMetric === i ? 'on' : ''}" id="sm-${i}" onclick="setStatMetric(${i})">
-      <input type="radio" name="sm" ${sMetric === i ? 'checked' : ''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0">
+    <div class="ritem ${sMetric===i?'on':''}" id="sm-${i}" onclick="setStatMetric(${i})">
+      <input type="radio" name="sm" ${sMetric===i?'checked':''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0">
       <span>${m.l}</span>
     </div>`).join('')
 
-  const tRows = STS.map((t, i) => `
-    <div class="ritem ${sTest === i ? 'on' : ''}" id="st-${i}" onclick="setStatTest(${i})">
-      <input type="radio" name="st" ${sTest === i ? 'checked' : ''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0">
-      <span>${t.l}</span>
+  // group tests visually
+  const groups = [
+    { label: 'Paired',       range: [0, 3]  },
+    { label: 'Independent',  range: [4, 6]  },
+    { label: 'Correlation',  range: [7, 9]  },
+    { label: 'Multi / Trend', range: [10, 11] },
+  ]
+
+  const tRows = groups.map(g => `
+    <div style="margin-bottom:8px">
+      <div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+        color:var(--ddd);margin-bottom:3px;padding-left:9px">${g.label}</div>
+      ${STS.slice(g.range[0], g.range[1]+1).map((t, ri) => {
+        const i = g.range[0] + ri
+        return `<div class="ritem ${sTest===i?'on':''}" id="st-${i}" onclick="setStatTest(${i})">
+          <input type="radio" name="st" ${sTest===i?'checked':''} style="accent-color:var(--acc);width:10px;height:10px;flex-shrink:0">
+          <span>${t.l}</span>
+        </div>`
+      }).join('')}
     </div>`).join('')
 
   el.innerHTML = `
@@ -209,19 +258,19 @@ function rStats(el) {
           </div>
           <div>
             <div class="slbl">Test</div>
-            <div style="display:flex;flex-direction:column;gap:3px">${tRows}</div>
+            ${tRows}
           </div>
           <button onclick="runStats()"
-            style="padding:7px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);
+            style="padding:8px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);
             color:var(--d);font-size:8px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
-            cursor:pointer;font-family:var(--font);transition:all .12s;width:100%"
-            onmouseover="this.style.background='var(--b)';this.style.color='var(--t)'"
-            onmouseout="this.style.background='var(--s2)';this.style.color='var(--d)'">
+            cursor:pointer;font-family:var(--font);transition:all .12s;width:100%;margin-top:4px"
+            onmouseover="this.style.background='rgba(56,189,248,.08)';this.style.borderColor='rgba(56,189,248,.25)';this.style.color='#38bdf8'"
+            onmouseout="this.style.background='var(--s2)';this.style.borderColor='var(--b2)';this.style.color='var(--d)'">
             Run Test ▶
           </button>
         </div>
         <div class="s-out" id="so">
-          <div style="color:var(--dd);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding-top:40px;text-align:center">
+          <div style="color:var(--ddd);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding-top:50px;text-align:center">
             Configure and run a test
           </div>
         </div>
@@ -229,149 +278,262 @@ function rStats(el) {
     </div>`
 }
 
-export function toggleStatDS(id) {
+function toggleStatDS(id) {
   const next = sSelDS.includes(id) ? sSelDS.filter(x => x !== id) : [...sSelDS, id]
   set('sSelDS', next)
   document.getElementById(`sc-${id}`)?.classList.toggle('on', next.includes(id))
 }
 
-export function setStatMetric(i) {
+function setStatMetric(i) {
   set('sMetric', i)
   document.querySelectorAll('[id^="sm-"]').forEach((e, j) => e.classList.toggle('on', j === i))
 }
 
-export function setStatTest(i) {
+function setStatTest(i) {
   set('sTest', i)
   document.querySelectorAll('[id^="st-"]').forEach((e, j) => e.classList.toggle('on', j === i))
 }
 
-export function runStats() {
+// ── run + render result ──────────────────────────────────────
+function runStats() {
   const out = document.getElementById('so')
   if (!out) return
 
-  const sel = datasets.filter(d => sSelDS.includes(d.id))
-  if (sel.length < 2) {
-    out.innerHTML = `<div style="color:var(--dd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em">Select ≥ 2 datasets</div>`
-    return
-  }
-
-  const m    = SMS[sMetric]
+  const sel  = datasets.filter(d => sSelDS.includes(d.id))
   const test = STS[sTest]
-  const vals = sel.map(d => ({ d, v: m.g(d) })).filter(x => x.v !== null)
+  const m    = SMS[sMetric]
 
-  if (vals.length < 2) {
-    out.innerHTML = `<div style="color:var(--dd);font-size:9px">Metric not available for selected datasets</div>`
-    return
+  if (sel.length < 2 && !test.single) {
+    out.innerHTML = _errBlock('Select ≥ 2 datasets'); return
   }
 
-  let pVal, efStr, statStr, ciStr = '', interp = ''
+  const vals = sel.map(d => ({ d, v: m.g(d) })).filter(x => x.v != null)
 
-  if (test.corr) {
+  let res, statStr, efVal, efType = 'r', ciData = null
+
+  // ── route by test type ───────────────────────────────────
+  if (test.single) {
+    // linear trend on first selected dataset's HR series
+    const pts = sel[0].metrics.hr
+    if (!pts?.length) { out.innerHTML = _errBlock('No HR data'); return }
+    res = linTrend(pts)
+    statStr = `t(${res.df}) = ${res.t.toFixed(3)},  slope = ${(res.slope * 60).toFixed(3)} bpm/min,  R² = ${res.r2.toFixed(3)}`
+    efVal = Math.sqrt(res.r2)   // convert R² → r for Cohen scale
+    efType = 'r'
+
+  } else if (test.corr) {
     const p1 = sel[0].metrics.hr || [], p2 = sel[1].metrics.hr || []
     const pairs = []
     p1.forEach(a => { const b = p2.find(p => Math.abs(p.t - a.t) < 15); if (b) pairs.push([a.v, b.v]) })
-    if (pairs.length < 4) { out.innerHTML = `<div style="color:var(--dd);font-size:9px">Not enough overlapping timepoints</div>`; return }
+    if (pairs.length < 4) { out.innerHTML = _errBlock('Not enough overlapping timepoints'); return }
     const cx = pairs.map(p => p[0]), cy = pairs.map(p => p[1])
-    const res = sTest === 4 ? pearson(cx, cy) : spearman(cx, cy)
-    pVal = res.p; efStr = `r = ${res.r.toFixed(4)}`
-    statStr = `${sTest === 4 ? 'r' : 'ρ'}(${res.n - 2}) = ${res.r.toFixed(4)}, p = ${pfmt(pVal)}`
-    interp = interpStr(pVal, Math.abs(res.r), 'r')
+
+    if (test.key === 'pearson')  res = pearson(cx, cy),      statStr = `r(${res.df}) = ${res.r.toFixed(4)},  t = ${res.t.toFixed(3)}`,  efVal = res.r
+    else if (test.key === 'spearman') res = spearman(cx, cy), statStr = `ρ(${res.df}) = ${res.r.toFixed(4)},  t = ${res.t.toFixed(3)}`, efVal = res.r
+    else { res = kendallTau(cx, cy); statStr = `τ = ${res.tau.toFixed(4)},  Z = ${res.Z.toFixed(3)},  n = ${res.n}`; efVal = res.tau }
 
   } else if (test.multi) {
-    const groups = vals.map(x => { const d = sel.find(dd => dd.id === x.d.id); return d?.metrics.hr?.map(p => p.v) || [x.v] })
-    const res = kruskalWallis(groups)
-    pVal = res.p; efStr = `η² ≈ ${res.eta2.toFixed(3)}`
-    statStr = `H(${res.df}) = ${res.H.toFixed(3)}, p = ${pfmt(pVal)}, k = ${groups.length}`
-    interp = pVal < 0.05 ? 'Significant group difference detected.' : 'No significant group difference.'
+    const groups = vals.map(x => sel.find(dd => dd.id === x.d.id)?.metrics.hr?.map(p => p.v) || [x.v])
+    res = kruskalWallis(groups)
+    statStr = `H(${res.df}) = ${res.H.toFixed(3)},  p = ${pfmt(res.p)},  k = ${groups.length},  N = ${res.N}`
+    efVal = res.eta2; efType = 'eta2'
 
   } else if (test.paired) {
-    if (vals.length !== 2) { out.innerHTML = `<div style="color:var(--dd);font-size:9px">Paired tests require exactly 2 datasets</div>`; return }
+    if (vals.length !== 2) { out.innerHTML = _errBlock('Paired tests require exactly 2 datasets'); return }
     const p1 = sel[0].metrics.hr?.map(p => p.v) || []
     const p2 = sel[1].metrics.hr?.map(p => p.v) || []
     const n  = Math.min(p1.length, p2.length)
     const s1 = p1.slice(0, n), s2 = p2.slice(0, n)
 
-    if (sTest === 0) {
-      const r = wilcox(s1, s2)
-      pVal = r.p; efStr = `r = ${r.r.toFixed(3)} (${efl(r.r, 'r')})`
-      statStr = `W+ = ${r.Wp.toFixed(1)}, W− = ${r.Wm.toFixed(1)}, n = ${r.n}`
-    } else if (sTest === 1) {
-      const r = signTest(s1, s2)
-      pVal = r.p; efStr = `${r.k}/${r.n} positive`
-      statStr = `k = ${r.k}, n = ${r.n}`
-    } else {
-      const r = pairedT(s1, s2)
-      pVal = r.p; efStr = `d = ${r.d.toFixed(3)} (${efl(Math.abs(r.d), 'd')})`
-      statStr = `t(${r.n - 1}) = ${r.t.toFixed(3)}, Δ = ${r.mean.toFixed(2)}, SE = ${r.se.toFixed(2)}`
-    }
+    if      (test.key === 'wilcox') { res = wilcox(s1, s2); statStr = `W+ = ${res.Wp.toFixed(1)},  W− = ${res.Wm.toFixed(1)},  n = ${res.n}`;                   efVal = res.r }
+    else if (test.key === 'sign')   { res = signTest(s1, s2); statStr = `k = ${res.k} / ${res.n} positive differences`;                                           efVal = (2*res.k/res.n - 1) }
+    else if (test.key === 'pairedT'){ res = pairedT(s1, s2); statStr = `t(${res.df}) = ${res.t.toFixed(3)},  Δ = ${res.mean.toFixed(2)},  SE = ${res.se.toFixed(2)}`; efVal = res.d; efType = 'd' }
+    else                            { res = permutationTest(s1, s2, 5000); statStr = `Δ = ${res.meanDiff.toFixed(3)},  d = ${res.d.toFixed(3)},  B = ${res.B}`; efVal = res.d; efType = 'd' }
 
-    const ci = bootstrapCI(s1, s2, 800)
-    ciStr  = `95% CI (bootstrap): [${ci.lo.toFixed(2)}, ${ci.hi.toFixed(2)}]`
-    interp = interpStr(pVal, 0, 'r')
+    ciData = bootstrapCI(s1, s2, 1200)
 
   } else {
-    if (vals.length !== 2) { out.innerHTML = `<div style="color:var(--dd);font-size:9px">Select exactly 2 datasets</div>`; return }
+    // independent two-sample
+    if (vals.length !== 2) { out.innerHTML = _errBlock('Select exactly 2 datasets'); return }
     const p1 = sel[0].metrics.hr?.map(p => p.v) || []
     const p2 = sel[1].metrics.hr?.map(p => p.v) || []
-    const res = mannWhitney(p1, p2)
-    pVal = res.p; efStr = `r = ${res.r.toFixed(3)} (${efl(res.r, 'r')})`
-    statStr = `U = ${res.U.toFixed(1)}, Z = ${res.Z.toFixed(3)}, n₁=${res.nx}, n₂=${res.ny}`
-    interp = interpStr(pVal, res.r, 'r')
+
+    if      (test.key === 'mw')  { res = mannWhitney(p1, p2); statStr = `U = ${res.U.toFixed(1)},  Z = ${res.Z.toFixed(3)},  n₁ = ${res.nx},  n₂ = ${res.ny}`; efVal = res.r }
+    else if (test.key === 'ks')  { res = ksTest(p1, p2);  statStr = `D = ${res.D.toFixed(4)},  λ = ${res.lambda.toFixed(3)},  n₁ = ${res.nx},  n₂ = ${res.ny}`; efVal = res.D * 2 - 1 }
+    else                         { res = cvmTest(p1, p2); statStr = `T = ${res.T.toFixed(4)},  Z = ${res.Z.toFixed(3)},  n₁ = ${res.nx},  n₂ = ${res.ny}`;      efVal = Math.min(1, res.T * 3) }
   }
 
-  const pc = pVal < 0.05 ? '#4ade80' : pVal < 0.1 ? '#fbbf24' : '#f87171'
-  const sb = pVal < 0.05
-    ? `<span class="badge bg">p &lt; 0.05 — significant</span>`
-    : pVal < 0.1
-      ? `<span class="badge by">trend (p &lt; 0.10)</span>`
-      : `<span class="badge br">not significant</span>`
+  _renderResult(out, { res, test, m, sel, vals, statStr, efVal, efType, ciData })
+}
+
+// ── result renderer ──────────────────────────────────────────
+function _renderResult(out, { res, test, m, sel, vals, statStr, efVal, efType, ciData }) {
+  const p   = res.p
+  const pc  = p < 0.05 ? '#4ade80' : p < 0.1 ? '#fbbf24' : '#f87171'
+  const pcb = p < 0.05 ? 'rgba(74,222,128,.1)' : p < 0.1 ? 'rgba(251,191,36,.1)' : 'rgba(248,113,113,.1)'
+  const pcbrd = p < 0.05 ? 'rgba(74,222,128,.2)' : p < 0.1 ? 'rgba(251,191,36,.2)' : 'rgba(248,113,113,.2)'
+  const badge = p < 0.05
+    ? '<span class="badge bg">significant</span>'
+    : p < 0.1 ? '<span class="badge by">trend p &lt; 0.10</span>'
+    : '<span class="badge br">not significant</span>'
+
+  // p-value log-scale position (0.001 → 0%, 1.0 → 100%)
+  const pPct = Math.max(0, Math.min(100, ((Math.log10(Math.max(p, 0.001)) + 3) / 3) * 100))
+
+  // effect size position
+  const efabs  = Math.abs(efVal || 0)
+  const efPct2 = efPct(efabs, efType)
+  const efLbl  = efl(efabs, efType)
+
+  // data summary per dataset
+  const dsSummary = sel.map(d => {
+    const hr = d.metrics.hr?.map(p => p.v) || []
+    const mn = avg(hr), sd = std(hr)
+    const q1 = percentile(hr, 25), q3 = percentile(hr, 75)
+    const mv = vals.find(x => x.d.id === d.id)?.v
+    return `
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:6px">
+          <i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${d.color};box-shadow:0 0 5px ${d.color}"></i>
+          ${d.label}
+        </div></td>
+        <td style="color:var(--t);font-weight:700">${mv?.toFixed(3) ?? '—'}</td>
+        <td>${mn?.toFixed(1) ?? '—'}</td>
+        <td>${sd?.toFixed(2) ?? '—'}</td>
+        <td>${q1?.toFixed(0) ?? '—'} – ${q3?.toFixed(0) ?? '—'}</td>
+        <td>${hr.length}</td>
+      </tr>`
+  }).join('')
+
+  // CI bar (only for paired/indep tests that returned ciData)
+  const ciBlock = ciData ? (() => {
+    const { lo, hi, mean } = ciData
+    const span  = Math.max(Math.abs(lo), Math.abs(hi)) * 2.2 || 1
+    const toX   = v => 50 + (v / span) * 50   // 0-100% where 50%=zero
+    const loX = toX(lo), hiX = toX(hi), mX = toX(mean)
+    return `
+      <div>
+        <div class="slbl" style="margin-bottom:8px">Bootstrap 95% CI — Δ mean (B = 1200)</div>
+        <div style="position:relative;height:36px;background:var(--s2);border:1px solid var(--b);border-radius:7px;overflow:hidden">
+          <!-- zero line -->
+          <div style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--b2)"></div>
+          <!-- CI range fill -->
+          <div style="position:absolute;top:8px;height:20px;
+            left:${loX}%;width:${hiX-loX}%;
+            background:${pcb};border:1px solid ${pcbrd};border-radius:3px"></div>
+          <!-- mean dot -->
+          <div style="position:absolute;top:50%;left:${mX}%;width:5px;height:5px;
+            border-radius:50%;background:${pc};transform:translate(-50%,-50%);
+            box-shadow:0 0 6px ${pc}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:8px;color:var(--dd)">
+          <span>${lo.toFixed(2)}</span>
+          <span style="color:var(--d)">${mean.toFixed(2)}</span>
+          <span>${hi.toFixed(2)}</span>
+        </div>
+      </div>`
+  })() : ''
 
   out.innerHTML = `
-    <div class="rgrid">
-      <div class="rcard">
+    <!-- header breadcrumb -->
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--b);margin-bottom:14px">
+      <span style="font-size:10px;font-weight:700;color:var(--t);letter-spacing:.06em">${test.l}</span>
+      <span style="color:var(--ddd)">·</span>
+      <span style="font-size:9px;color:var(--d);font-family:var(--mono)">${m.l}</span>
+      <span style="color:var(--ddd)">·</span>
+      <span style="font-size:9px;color:var(--dd);font-family:var(--mono)">${sel.map(d=>d.label).join(' vs ')}</span>
+    </div>
+
+    <!-- primary cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+
+      <!-- p-value -->
+      <div class="rcard" style="background:${pcb};border-color:${pcbrd}">
         <div class="rl">p-value (2-tailed)</div>
-        <div class="rv" style="color:${pc}">${pfmt(pVal)}</div>
-        <div style="margin-top:8px">${sb}</div>
+        <div class="rv" style="color:${pc}">${pfmt(p)}</div>
+        <!-- significance gradient bar -->
+        <div style="position:relative;height:3px;border-radius:2px;margin:9px 0 7px;
+          background:linear-gradient(to right, #4ade80 0%, #4ade80 30%, #fbbf24 55%, #f87171 100%)">
+          <div style="position:absolute;top:-3px;left:${pPct}%;width:2px;height:9px;
+            background:white;border-radius:1px;transform:translateX(-50%);opacity:0.9"></div>
+        </div>
+        ${badge}
       </div>
+
+      <!-- effect size -->
       <div class="rcard">
         <div class="rl">Effect size</div>
-        <div class="rv">${efStr.split('=')[1]?.trim().split(' ')[0] || '—'}</div>
-        <div class="rs">${efStr}</div>
+        <div class="rv">${efabs.toFixed(3)}</div>
+        <!-- labeled Cohen scale -->
+        <div style="position:relative;margin:9px 0 4px">
+          <div style="height:3px;border-radius:2px;display:flex;overflow:hidden">
+            <div style="flex:1;background:rgba(56,189,248,.2)"></div>
+            <div style="flex:1;background:rgba(56,189,248,.35);border-left:1px solid var(--b)"></div>
+            <div style="flex:1;background:rgba(56,189,248,.6);border-left:1px solid var(--b)"></div>
+          </div>
+          <div style="position:absolute;top:-3px;left:${efPct2}%;width:2px;height:9px;
+            background:#38bdf8;border-radius:1px;transform:translateX(-50%);
+            box-shadow:0 0 5px rgba(56,189,248,.8)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--ddd);font-family:var(--mono);letter-spacing:.08em;margin-bottom:5px">
+          <span>small</span><span>medium</span><span>large</span>
+        </div>
+        <span style="font-size:8px;font-weight:700;color:var(--d);font-family:var(--mono)">${efLbl} (${efType})</span>
       </div>
+
+      <!-- statistic -->
       <div class="rcard">
-        <div class="rl">Test</div>
-        <div style="font-size:11px;font-weight:700;color:var(--t);line-height:1.4;margin-top:3px;font-family:var(--mono)">${test.l}</div>
+        <div class="rl">Test statistic</div>
+        <div style="font-size:11px;font-weight:700;color:var(--t);font-family:var(--mono);line-height:1.5;margin-top:4px;word-break:break-all">
+          ${test.l}
+        </div>
+        <div style="font-size:8px;color:var(--dd);font-family:var(--mono);margin-top:5px">${
+          test.single ? `n = ${res.n}` :
+          test.multi  ? `k = ${sel.length} groups` :
+          test.corr   ? `n = ${res.n} pairs` :
+          test.paired ? `n = ${(res.n||0)} pairs` :
+          `n₁ = ${res.nx ?? '?'}, n₂ = ${res.ny ?? '?'}`
+        }</div>
       </div>
     </div>
 
-    <div class="cout">
+    <!-- monospace output -->
+    <div class="cout"
+><span style="color:var(--dd)">test    </span>${test.l}
 <span style="color:var(--dd)">metric  </span>${m.l}
-<span style="color:var(--dd)">test    </span>${test.l}
 <span style="color:var(--dd)">stat    </span>${statStr}
-<span style="color:var(--dd)">p =     </span><span style="color:${pc};font-weight:700">${pfmt(pVal)}</span>
-${ciStr ? `<span style="color:var(--dd)">ci      </span>${ciStr}` : ''}</div>
+<span style="color:var(--dd)">p =     </span><span style="color:${pc};font-weight:700">${pfmt(p)}</span>
+<span style="color:var(--dd)">effect  </span>${efabs.toFixed(4)}  (${efLbl}, ${efType})${ciData ? `
+<span style="color:var(--dd)">95% CI  </span>[${ciData.lo.toFixed(3)},  ${ciData.hi.toFixed(3)}]  (bootstrap B=1200)` : ''}</div>
 
-    ${interp ? `<div class="csm" style="font-size:10px;color:var(--d);line-height:1.7"><strong style="color:var(--t)">Interpretation:</strong> ${interp}</div>` : ''}
+    ${ciBlock}
 
+    <!-- interpretation -->
+    <div class="csm" style="font-size:10px;color:var(--d);line-height:1.75">
+      <strong style="color:var(--t)">Interpretation: </strong>${interpStr(p, efVal, efType)}
+    </div>
+
+    <!-- per-dataset summary -->
     <div>
-      <div class="slbl">Data</div>
+      <div class="slbl">Dataset summary</div>
       <table class="tbl">
-        <thead><tr><th>Dataset</th><th>${m.l}</th><th>HR mean</th><th>HR peak</th><th>n</th></tr></thead>
-        <tbody>
-          ${sel.map(d => {
-            const vv  = vals.find(x => x.d.id === d.id)?.v
-            const hrm = avg(d.metrics.hr?.map(p => p.v))
-            return `<tr>
-              <td><div style="display:flex;align-items:center;gap:6px">${dot(d.color)}${d.label}</div></td>
-              <td style="color:var(--t)">${vv?.toFixed(3) || '—'}</td>
-              <td>${hrm?.toFixed(1) || '—'}</td>
-              <td>${d.peak}</td>
-              <td>${d.metrics.hr?.length || '—'}</td>
-            </tr>`
-          }).join('')}
-        </tbody>
+        <thead><tr>
+          <th>Dataset</th><th>${m.l}</th>
+          <th>HR mean</th><th>HR SD</th><th>IQR</th><th>n</th>
+        </tr></thead>
+        <tbody>${dsSummary}</tbody>
       </table>
+    </div>
+
+    <!-- assumption note -->
+    <div style="padding:8px 11px;border-radius:7px;background:var(--s2);border:1px solid var(--b)">
+      <span style="font-size:7px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--ddd)">Assumptions · </span>
+      <span style="font-size:9px;color:var(--dd);font-family:var(--mono)">${test.note}</span>
     </div>`
+}
+
+function _errBlock(msg) {
+  return `<div style="color:var(--dd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding-top:20px">${msg}</div>`
 }
 
 // ── METRICS ──────────────────────────────────────────────────
