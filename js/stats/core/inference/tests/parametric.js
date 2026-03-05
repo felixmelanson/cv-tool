@@ -1,9 +1,9 @@
-// parametric.js — tests that assume (appreox.) normal distributions
-// pairedT and pearson ; linTrend is  key addition
+// parametric.js — tests that assume (approximately) normal distributions
+// pairedT and pearson are the workhorses; linTrend is the key addition
 // all return a consistent shape: { stat, p, effect, n, ... extras }
 
-import { tCDF } from '../core/distributions.js'
-import { avg } from '../core/utils.js'
+import { tCDF } from '../../distributions.js'
+import { avg } from '../../utils.js'
 
 // ── paired t-test ────────────────────────────────────────────
 export function pairedT(x, y) {
@@ -70,7 +70,8 @@ export function linTrend(pts) {
 }
 
 // ── Recovery slope convenience wrapper ───────────────────────
-// for quantifying how fast HR is recovering post-exercise
+// runs linTrend on the last `fracEnd` fraction of a HR series
+// useful for quantifying how fast HR is recovering post-exercise
 export function recoverySlopeHR(hrPts, fracEnd = 0.35) {
   const start = Math.floor(hrPts.length * (1 - fracEnd))
   const slice = hrPts.slice(start)

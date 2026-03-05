@@ -1,8 +1,8 @@
 // nonparametric.js — rank-based + distribution-free tests
 // no normality assumptions → appropriate for small n and non-Gaussian CV data
 
-import { normalCDF, chi2CDF, kolmogorovP, binom } from '../core/distributions.js'
-import { avg, rankArr } from '../core/utils.js'
+import { normalCDF, chi2CDF, kolmogorovP, binom } from '../../distributions.js'
+import { avg, rankArr } from '../../utils.js'
 
 // ── Wilcoxon signed-rank ──────────────────────────────────────
 // exact enumeration for n ≤ 20, normal approx otherwise
