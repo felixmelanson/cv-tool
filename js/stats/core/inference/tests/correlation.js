@@ -3,8 +3,8 @@
 // Spearman wraps Pearson on ranked data; Kendall counts concordant pairs directly
 
 import { pearson } from './parametric.js'
-import { rankArr } from '../core/utils.js'
-import { normalCDF } from '../core/distributions.js'
+import { rankArr } from '../../utils.js'
+import { normalCDF } from '../../distributions.js'
 
 // ── Spearman ρ ───────────────────────────────────────────────
 // monotonic association — doesn't assume linearity like Pearson
