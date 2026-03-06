@@ -13,7 +13,7 @@ export let gSmooth    = true
 export let gChartType = 'line' // line | area | scatter | histogram | box | violin | heatmap | regression
 
 // chart customization
-export let custOpen     = false
+export let custOpen     = 'live'
 export let custAxisTitle = ''
 export let custLineWidth = 2
 export let custMarkerSize = 4

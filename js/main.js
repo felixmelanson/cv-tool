@@ -161,15 +161,18 @@ function toggleTheme() {
 // ── customize panel toggle ───────────────────────────────────
 
 function toggleCustomize() {
-  const next = custOpen === 'customize' ? 'live' : 'customize'
+  const isOpen = custOpen === 'customize' || custOpen === 'live'
+  const next   = isOpen ? false : 'customize'
   set('custOpen', next)
-  document.getElementById('cust-btn')?.classList.toggle('on', next === 'customize')
-  // if we're on the graph view, update the panel
+  document.getElementById('cust-btn')?.classList.toggle('on', !!next)
   if (section === 'graph') {
-    setPanelTab(next)
+    const dr = document.getElementById('dash-right')
+    if (dr) dr.classList.toggle('collapsed', !next)
+    if (next) setPanelTab(next)
   }
 }
 
 // ── boot ─────────────────────────────────────────────────────
 
-loadDemoData('four')
+// defer one tick so the flex layout has resolved before Plotly measures it
+setTimeout(() => loadDemoData('four'), 0)

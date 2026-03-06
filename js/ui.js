@@ -248,6 +248,9 @@ export function toggleDS(id) {
 
 export function setPanelTab(tab) {
   set('custOpen', tab)
+  // ensure the panel is visible when switching tabs
+  const dr = document.getElementById('dash-right')
+  if (dr) dr.classList.remove('collapsed')
   const liveEl = document.getElementById('live-panel')
   const custEl = document.getElementById('customize-panel')
   document.querySelectorAll('.panel-tab').forEach(b => b.classList.remove('on'))

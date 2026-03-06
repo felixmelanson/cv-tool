@@ -38,7 +38,7 @@ function _themeColors() {
   }
 }
 
-function _baseLayout(tc, extra) {
+function _baseLayout(tc, extra, h) {
   const legendMap = {
     top:    { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.06 },
     bottom: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
@@ -51,8 +51,10 @@ function _baseLayout(tc, extra) {
   return {
     paper_bgcolor: tc.paper,
     plot_bgcolor:  tc.plot,
-    font: { family: "'Courier New', Courier, monospace", size: 10, color: tc.text },
-    margin: { t: 28, r: 18, b: 42, l: 54 },
+    font:     { family: "'Courier New', Courier, monospace", size: 10, color: tc.text },
+    margin:   { t: 28, r: 18, b: 42, l: 54 },
+    height:   h || undefined,
+    autosize: true,
     legend: showLegend
       ? { ...legendCfg, font: { size: 9, color: tc.text }, bgcolor: 'rgba(0,0,0,0)', borderwidth: 0 }
       : false,
@@ -98,7 +100,6 @@ export function buildChart() {
   const container = document.getElementById('ga')
   if (!container) return
 
-  // purge any existing plot
   const plotDiv = document.getElementById('plotly-chart')
   if (plotDiv) Plotly.purge(plotDiv)
 
@@ -106,13 +107,11 @@ export function buildChart() {
   const active = datasets.filter(d => activeDS.includes(d.id) && d.metrics[gMetric])
   if (!active.length) return
 
-  // ensure the plot div exists
   let el = document.getElementById('plotly-chart')
   if (!el) {
     el = document.createElement('div')
     el.id = 'plotly-chart'
     el.style.cssText = 'width:100%;height:100%;'
-    // insert before the hint
     const hint = container.querySelector('.g-hint')
     if (hint) container.insertBefore(el, hint)
     else container.appendChild(el)
@@ -121,34 +120,38 @@ export function buildChart() {
   const tc   = _themeColors()
   const type = gChartType
 
-  let data, layout, config
+  // measure the container — Plotly needs an explicit pixel height when the
+  // parent uses flex:1 (height:100% doesn't resolve until after first paint)
+  const h = Math.max(container.clientHeight - 24, 240)
+
+  let data, layout
 
   switch (type) {
     case 'line':
     case 'area':
     case 'scatter':
-      ({ data, layout } = _buildTimeSeries(active, m, tc, type))
+      ({ data, layout } = _buildTimeSeries(active, m, tc, type, h))
       break
     case 'histogram':
-      ({ data, layout } = _buildHistogram(active, m, tc))
+      ({ data, layout } = _buildHistogram(active, m, tc, h))
       break
     case 'box':
-      ({ data, layout } = _buildBox(active, m, tc))
+      ({ data, layout } = _buildBox(active, m, tc, h))
       break
     case 'violin':
-      ({ data, layout } = _buildViolin(active, m, tc))
+      ({ data, layout } = _buildViolin(active, m, tc, h))
       break
     case 'heatmap':
-      ({ data, layout } = _buildHeatmap(active, m, tc))
+      ({ data, layout } = _buildHeatmap(active, m, tc, h))
       break
     case 'regression':
-      ({ data, layout } = _buildRegression(active, m, tc))
+      ({ data, layout } = _buildRegression(active, m, tc, h))
       break
     default:
-      ({ data, layout } = _buildTimeSeries(active, m, tc, 'line'))
+      ({ data, layout } = _buildTimeSeries(active, m, tc, 'line', h))
   }
 
-  config = {
+  const config = {
     responsive: true,
     displayModeBar: true,
     displaylogo: false,
@@ -156,20 +159,57 @@ export function buildChart() {
     toImageButtonOptions: { format: 'png', scale: 2 },
   }
 
-  // neon glow effect via CSS filter on the container
   if (neonMode) {
     el.style.filter = 'drop-shadow(0 0 6px rgba(56,189,248,0.3))'
   } else {
     el.style.filter = ''
   }
 
-  Plotly.newPlot(el, data, layout, config)
+  const animated = ['line', 'area'].includes(type)
+
+  if (animated) {
+    // entrance: render a flat version (all y = mean) then animate to real values
+    const flatData = data.map(t => {
+      if (!t.y?.length) return t
+      const mean = t.y.reduce((a, b) => a + b, 0) / t.y.length
+      return { ...t, y: t.y.map(() => mean) }
+    })
+    Plotly.newPlot(el, flatData, layout, config)
+    requestAnimationFrame(() => {
+      Plotly.animate(el, {
+        data: data.map(t => ({ y: t.y }))
+      }, {
+        transition: { duration: 650, easing: 'cubic-in-out' },
+        frame:      { duration: 650, redraw: false },
+      })
+      Plotly.Plots.resize(el)
+    })
+  } else {
+    // fade in for static chart types
+    el.style.opacity = '0'
+    Plotly.newPlot(el, data, layout, config)
+    requestAnimationFrame(() => {
+      el.style.transition = 'opacity 0.3s ease'
+      el.style.opacity    = '1'
+      Plotly.Plots.resize(el)
+    })
+  }
+
   set('charts', { ...charts, g: el })
+
+  // keep chart fitted when the flex layout changes (panel open/close)
+  if (!container._roAttached) {
+    container._roAttached = true
+    new ResizeObserver(() => {
+      const chart = document.getElementById('plotly-chart')
+      if (chart?.data) Plotly.Plots.resize(chart)
+    }).observe(container)
+  }
 }
 
 // ── time series (line / area / scatter) ──────────────────────
 
-function _buildTimeSeries(active, m, tc, style) {
+function _buildTimeSeries(active, m, tc, style, h) {
   const traces = active.map((ds, i) => {
     const col  = _dsColor(ds, i)
     const pts  = ds.metrics[gMetric]
@@ -188,7 +228,7 @@ function _buildTimeSeries(active, m, tc, style) {
       },
       marker: {
         color: col,
-        size: style === 'scatter' ? custMarkerSize : 0,
+        size:  style === 'scatter' ? custMarkerSize : 0,
         opacity: custOpacity,
       },
       opacity: custOpacity,
@@ -197,7 +237,7 @@ function _buildTimeSeries(active, m, tc, style) {
     }
 
     if (style === 'area') {
-      trace.fill = 'tozeroy'
+      trace.fill      = 'tozeroy'
       trace.fillcolor = hexAlpha(col, 0.12)
     }
 
@@ -209,10 +249,10 @@ function _buildTimeSeries(active, m, tc, style) {
       tickvals: _timeTicks(active),
       ticktext: _timeTicks(active).map(t => _formatTime(t)),
     }),
-    yaxis: _yAxis(tc, m.unit),
+    yaxis:     _yAxis(tc, m.unit),
     hovermode: 'x unified',
     hoverlabel: { bgcolor: tc.hover, font: { family: "'Courier New', monospace", size: 10, color: tc.hText }, bordercolor: tc.grid },
-  })
+  }, h)
 
   return { data: traces, layout }
 }
@@ -229,9 +269,9 @@ function _timeTicks(active) {
 
 // ── histogram ────────────────────────────────────────────────
 
-function _buildHistogram(active, m, tc) {
+function _buildHistogram(active, m, tc, h) {
   const traces = active.map((ds, i) => {
-    const col = _dsColor(ds, i)
+    const col  = _dsColor(ds, i)
     const vals = ds.metrics[gMetric].map(p => p.v)
     return {
       x: vals,
@@ -249,14 +289,14 @@ function _buildHistogram(active, m, tc) {
     xaxis: _xAxis(tc, { title: { text: m.label + ' (' + m.unit + ')', font: { size: 10, color: tc.title } } }),
     yaxis: _yAxis(tc, null, { title: { text: 'Count', font: { size: 10, color: tc.title } } }),
     hovermode: 'closest',
-  })
+  }, h)
 
   return { data: traces, layout }
 }
 
 // ── box plot ─────────────────────────────────────────────────
 
-function _buildBox(active, m, tc) {
+function _buildBox(active, m, tc, h) {
   const orientation = custHorizontal ? 'h' : 'v'
 
   const traces = active.map((ds, i) => {
@@ -265,36 +305,32 @@ function _buildBox(active, m, tc) {
     const base = {
       name: ds.label,
       type: 'box',
-      marker: { color: col, outliercolor: col, size: 3 },
-      line: { color: col, width: 1.5 },
+      marker:    { color: col, outliercolor: col, size: 3 },
+      line:      { color: col, width: 1.5 },
       fillcolor: hexAlpha(col, 0.15),
-      notched: custNotched,
+      notched:   custNotched,
       boxpoints: custShowPoints ? 'outliers' : false,
-      jitter: 0.3,
-      pointpos: -1.5,
+      jitter:    0.3,
+      pointpos:  -1.5,
     }
-    if (orientation === 'h') {
-      base.x = vals
-      base.orientation = 'h'
-    } else {
-      base.y = vals
-    }
+    if (orientation === 'h') { base.x = vals; base.orientation = 'h' }
+    else                     { base.y = vals }
     return base
   })
 
   const axCfg = { title: { text: m.label + ' (' + m.unit + ')', font: { size: 10, color: tc.title } } }
   const layout = _baseLayout(tc, {
-    xaxis: _xAxis(tc, orientation === 'h' ? axCfg : {}),
-    yaxis: _yAxis(tc, orientation === 'v' ? m.unit : null, orientation === 'v' ? axCfg : {}),
+    xaxis:     _xAxis(tc, orientation === 'h' ? axCfg : {}),
+    yaxis:     _yAxis(tc, orientation === 'v' ? m.unit : null, orientation === 'v' ? axCfg : {}),
     hovermode: 'closest',
-  })
+  }, h)
 
   return { data: traces, layout }
 }
 
 // ── violin ───────────────────────────────────────────────────
 
-function _buildViolin(active, m, tc) {
+function _buildViolin(active, m, tc, h) {
   const traces = active.map((ds, i) => {
     const col  = _dsColor(ds, i)
     const vals = ds.metrics[gMetric].map(p => p.v)
@@ -302,31 +338,30 @@ function _buildViolin(active, m, tc) {
       y: vals,
       name: ds.label,
       type: 'violin',
-      line: { color: col, width: 1.5 },
+      line:      { color: col, width: 1.5 },
       fillcolor: hexAlpha(col, 0.15),
-      meanline: { visible: true },
-      box: { visible: custShowPoints },
-      points: custShowPoints ? 'outliers' : false,
-      jitter: 0.3,
+      meanline:  { visible: true },
+      box:       { visible: custShowPoints },
+      points:    custShowPoints ? 'outliers' : false,
+      jitter:    0.3,
       scalemode: 'width',
       hovertemplate: `<b>${ds.label}</b><br>%{y:.1f} ${m.unit}<extra></extra>`,
     }
   })
 
   const layout = _baseLayout(tc, {
-    yaxis: _yAxis(tc, m.unit, { title: { text: m.label, font: { size: 10, color: tc.title } } }),
-    hovermode: 'closest',
+    yaxis:      _yAxis(tc, m.unit, { title: { text: m.label, font: { size: 10, color: tc.title } } }),
+    hovermode:  'closest',
     violinmode: 'group',
-  })
+  }, h)
 
   return { data: traces, layout }
 }
 
 // ── heatmap ──────────────────────────────────────────────────
 
-function _buildHeatmap(active, m, tc) {
-  // Build a time-binned heatmap: rows = datasets, columns = time bins
-  const binSize = 60 // 60-second bins
+function _buildHeatmap(active, m, tc, h) {
+  const binSize = 60
   const allT  = active.flatMap(d => d.metrics[gMetric].map(p => p.t))
   const tMin  = Math.min(...allT)
   const tMax  = Math.max(...allT)
@@ -335,24 +370,22 @@ function _buildHeatmap(active, m, tc) {
   const xLabels = Array.from({ length: nBins }, (_, i) => _formatTime(tMin + i * binSize))
   const yLabels = active.map(d => d.label)
   const z = active.map(ds => {
-    const bins = new Array(nBins).fill(null)
+    const bins   = new Array(nBins).fill(null)
     const counts = new Array(nBins).fill(0)
     ds.metrics[gMetric].forEach(p => {
       const idx = Math.min(Math.floor((p.t - tMin) / binSize), nBins - 1)
-      bins[idx] = (bins[idx] || 0) + p.v
+      bins[idx]   = (bins[idx] || 0) + p.v
       counts[idx]++
     })
     return bins.map((sum, i) => counts[i] > 0 ? sum / counts[i] : null)
   })
 
   const trace = {
-    x: xLabels,
-    y: yLabels,
-    z: z,
-    type: 'heatmap',
+    x: xLabels, y: yLabels, z,
+    type:       'heatmap',
     colorscale: custColorscale,
     colorbar: {
-      title: { text: m.unit, font: { size: 9, color: tc.text } },
+      title:    { text: m.unit, font: { size: 9, color: tc.text } },
       tickfont: { size: 8, color: tc.text },
       thickness: 12,
       outlinewidth: 0,
@@ -363,18 +396,18 @@ function _buildHeatmap(active, m, tc) {
   }
 
   const layout = _baseLayout(tc, {
-    xaxis: _xAxis(tc, { nticks: 15 }),
-    yaxis: { tickfont: { size: 9, family: "'Courier New', monospace", color: tc.text }, automargin: true },
+    xaxis:     _xAxis(tc, { nticks: 15 }),
+    yaxis:     { tickfont: { size: 9, family: "'Courier New', monospace", color: tc.text }, automargin: true },
     hovermode: 'closest',
-    margin: { t: 28, r: 80, b: 42, l: 80 },
-  })
+    margin:    { t: 28, r: 80, b: 42, l: 80 },
+  }, h)
 
   return { data: [trace], layout }
 }
 
 // ── regression (scatter + trendline) ─────────────────────────
 
-function _buildRegression(active, m, tc) {
+function _buildRegression(active, m, tc, h) {
   const traces = []
 
   active.forEach((ds, i) => {
@@ -383,7 +416,6 @@ function _buildRegression(active, m, tc) {
     const x    = pts.map(p => p.t)
     const y    = pts.map(p => p.v)
 
-    // scatter
     traces.push({
       x, y,
       name: ds.label,
@@ -395,7 +427,6 @@ function _buildRegression(active, m, tc) {
     })
 
     if (custTrendline) {
-      // OLS linear regression
       const n    = x.length
       const sx   = x.reduce((s, v) => s + v, 0)
       const sy   = y.reduce((s, v) => s + v, 0)
@@ -404,7 +435,6 @@ function _buildRegression(active, m, tc) {
       const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx)
       const inter = (sy - slope * sx) / n
 
-      // R-squared
       const yMean = sy / n
       const ssTot = y.reduce((s, v) => s + (v - yMean) ** 2, 0)
       const ssRes = y.reduce((s, v, j) => s + (v - (slope * x[j] + inter)) ** 2, 0)
@@ -414,44 +444,42 @@ function _buildRegression(active, m, tc) {
       const yFit = xFit.map(xv => slope * xv + inter)
 
       traces.push({
-        x: xFit,
-        y: yFit,
-        name: `${ds.label} fit (R2=${r2.toFixed(3)})`,
+        x: xFit, y: yFit,
+        name: `${ds.label} fit (R²=${r2.toFixed(3)})`,
         type: 'scatter',
         mode: 'lines',
         line: { color: col, width: 2, dash: 'dash' },
         hoverinfo: 'skip',
       })
 
-      // confidence interval band
       if (custShowCI && n > 2) {
-        const se = Math.sqrt(ssRes / (n - 2))
+        const se    = Math.sqrt(ssRes / (n - 2))
         const xMean = sx / n
-        const nPts = 40
+        const nPts  = 40
         const xRange = xFit[1] - xFit[0]
-        const xCI = Array.from({ length: nPts }, (_, k) => xFit[0] + (k / (nPts - 1)) * xRange)
-        const tVal = 1.96 // approximate for large n
+        const xCI   = Array.from({ length: nPts }, (_, k) => xFit[0] + (k / (nPts - 1)) * xRange)
+        const tVal  = 1.96
 
         const yUpper = xCI.map(xv => {
           const yPred = slope * xv + inter
-          const hii = 1 / n + (xv - xMean) ** 2 / (sxx - sx * sx / n)
+          const hii   = 1 / n + (xv - xMean) ** 2 / (sxx - sx * sx / n)
           return yPred + tVal * se * Math.sqrt(hii)
         })
         const yLower = xCI.map(xv => {
           const yPred = slope * xv + inter
-          const hii = 1 / n + (xv - xMean) ** 2 / (sxx - sx * sx / n)
+          const hii   = 1 / n + (xv - xMean) ** 2 / (sxx - sx * sx / n)
           return yPred - tVal * se * Math.sqrt(hii)
         })
 
         traces.push({
           x: [...xCI, ...xCI.slice().reverse()],
           y: [...yUpper, ...yLower.slice().reverse()],
-          fill: 'toself',
+          fill:      'toself',
           fillcolor: hexAlpha(col, 0.08),
-          line: { color: 'transparent' },
-          type: 'scatter',
-          mode: 'lines',
-          name: `${ds.label} 95% CI`,
+          line:      { color: 'transparent' },
+          type:      'scatter',
+          mode:      'lines',
+          name:      `${ds.label} 95% CI`,
           showlegend: false,
           hoverinfo: 'skip',
         })
@@ -465,9 +493,9 @@ function _buildRegression(active, m, tc) {
       ticktext: _timeTicks(active).map(t => _formatTime(t)),
       title: { text: 'Time', font: { size: 10, color: tc.title } },
     }),
-    yaxis: _yAxis(tc, m.unit, { title: { text: m.label, font: { size: 10, color: tc.title } } }),
+    yaxis:     _yAxis(tc, m.unit, { title: { text: m.label, font: { size: 10, color: tc.title } } }),
     hovermode: 'closest',
-  })
+  }, h)
 
   return { data: traces, layout }
 }
@@ -511,7 +539,6 @@ export function buildCompare() {
   const container = document.getElementById('cc-wrap')
   if (!container) return
 
-  // purge
   Plotly.purge(container)
 
   const m    = CMPS[cmpM]
@@ -519,6 +546,7 @@ export function buildCompare() {
   if (vals.length < 2) return
 
   const tc = _themeColors()
+  const h  = Math.max(container.clientHeight - 8, 200)
 
   const trace = {
     x: vals.map(x => x.d.label),
@@ -526,20 +554,26 @@ export function buildCompare() {
     type: 'bar',
     marker: {
       color: vals.map(x => hexAlpha(x.d.color, 0.45)),
-      line: { color: vals.map(x => x.d.color), width: 1.5 },
+      line:  { color: vals.map(x => x.d.color), width: 1.5 },
     },
     hovertemplate: '%{x}<br>%{y:.3f}<extra></extra>',
   }
 
   const layout = _baseLayout(tc, {
     showlegend: false,
-    xaxis: _xAxis(tc, {}),
-    yaxis: _yAxis(tc, null),
-    hovermode: 'closest',
-    bargap: 0.25,
-  })
+    xaxis:      _xAxis(tc, {}),
+    yaxis:      _yAxis(tc, null),
+    hovermode:  'closest',
+    bargap:     0.25,
+  }, h)
 
+  container.style.opacity = '0'
   Plotly.newPlot(container, [trace], layout, { responsive: true, displayModeBar: false })
+  requestAnimationFrame(() => {
+    container.style.transition = 'opacity 0.3s ease'
+    container.style.opacity    = '1'
+    Plotly.Plots.resize(container)
+  })
 
   // sidebar values
   const cv = document.getElementById('cv')

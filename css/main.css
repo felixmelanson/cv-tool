@@ -501,7 +501,7 @@ body.light .tbl td { border-bottom-color: rgba(0,0,0,.05); }
   flex-direction: column;
   overflow-y:     auto;
   background:     var(--bg);
-  transition:     width .2s;
+  transition:     width .22s cubic-bezier(.4,0,.2,1), border-color .22s;
 }
 .dash-right.collapsed { width: 0; overflow: hidden; border-left: none; }
 
